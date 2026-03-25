@@ -96,7 +96,6 @@ async function cloudSave(d) {
   if(!playerCode) return false;
   try {
     syncStatus="syncing"; updateSyncUI();
-    d._lastModified = Date.now(); // millisecond timestamp for sync
     const resp = await fetch(`${FB_URL}/players/${playerCode}.json`, {
       method: "PUT",
       headers: {"Content-Type": "application/json"},
@@ -164,17 +163,14 @@ function updateSyncUI() {
   el.innerHTML = `${icons[syncStatus]||"⚪"} <span style="font-size:10px;color:#666">${labels[syncStatus]||""}</span>`;
 }
 
-// ── Smart save: local + cloud ────────────────────────────────────────────────
-function safeSave(d) {
-  d._lastModified = Date.now();
-  localSave(d);
-  cloudSave(d); // async, doesn't block
-}
-
+// ── Save functions ──────────────────────────────────────────────────────────
+// ONLY schedSave stamps _lastModified (called by user actions)
 function schedSave(){
   if(saveTimeout) clearTimeout(saveTimeout);
   saveTimeout=setTimeout(()=>{
-    safeSave(data);
+    data._lastModified = Date.now(); // ONLY stamp here — actual user change
+    localSave(data);
+    cloudSave(data);
     lastSaved=new Date();
     render();
   },400);
@@ -234,10 +230,13 @@ async function startApp() {
   // Ensure all data structures exist (Firebase deletes empty objects)
   data = ensureData(data);
 
-  // Save to both (stamp with current time)
-  data._lastModified = Date.now();
+  // Only save locally on load — do NOT push to cloud (to avoid overwriting newer data)
   localSave(data);
-  cloudSave(data);
+  // Only push to cloud if this is brand new data (no timestamp yet)
+  if(!data._lastModified) {
+    data._lastModified = Date.now();
+    cloudSave(data);
+  }
 
   // Show app
   $("loading").style.display = "none";
@@ -254,14 +253,14 @@ async function startApp() {
   }
   requestAnimationFrame(tick);
 
-  // Periodic local save every 60s
-  setInterval(()=>{ if(data){ safeSave(data); lastSaved=new Date(); }}, 60000);
+  // Periodic LOCAL-only save every 60s (safety net, does NOT push to cloud)
+  setInterval(()=>{ if(data) localSave(data); }, 60000);
 
   // Periodic cloud pull every 5s (sync from other devices)
   cloudSyncInterval = setInterval(pullFromCloud, 5000);
 
-  // Save on tab hide / close
-  const saveNow = ()=>{ if(data){ localSave(data); cloudSave(data); }};
+  // Save locally on tab hide / close (does NOT push to cloud with new timestamp)
+  const saveNow = ()=>{ if(data) localSave(data); };
   document.addEventListener("visibilitychange", saveNow);
   window.addEventListener("beforeunload", saveNow);
 }
