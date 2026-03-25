@@ -160,7 +160,20 @@ function updateSyncUI() {
   if(!el) return;
   const icons = {online:"🟢", syncing:"🔄", offline:"🟠", error:"🔴"};
   const labels = {online:"Sincronizado", syncing:"Sincronizando...", offline:"Sin conexión", error:"Error de sync"};
-  el.innerHTML = `${icons[syncStatus]||"⚪"} <span style="font-size:10px;color:#666">${labels[syncStatus]||""}</span>`;
+  el.innerHTML = `<span onclick="forceSync()" style="cursor:pointer">${icons[syncStatus]||"⚪"} <span style="font-size:10px;color:#666">${labels[syncStatus]||""}</span></span>`;
+}
+
+async function forceSync() {
+  flash("🔄 Sincronizando...","success");
+  const remote = await cloudLoad();
+  if(remote) {
+    data = ensureData(remote);
+    localSave(data);
+    flash("✅ Datos sincronizados desde la nube","success");
+    render();
+  } else {
+    flash("⚠️ No se pudo conectar con la nube","xp");
+  }
 }
 
 // ── Save functions ──────────────────────────────────────────────────────────
