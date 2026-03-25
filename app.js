@@ -86,7 +86,7 @@ function localLoad() {
     sources.push(()=>localStorage.getItem(`fin-rpg-daily-${dateToStr(d)}`));
   }
   for(const src of sources){
-    try{const v=src();if(v){const d=JSON.parse(v);if(d?.months)return d;}}catch(e){}
+    try{const v=src();if(v){const d=JSON.parse(v);if(d&&typeof d==='object'&&(d.months||d.avatar||d.xp!==undefined))return d;}}catch(e){}
   }
   return null;
 }
@@ -123,7 +123,8 @@ async function cloudLoad() {
     const resp = await fetch(`${FB_URL}/players/${playerCode}.json`);
     if(resp.ok) {
       const d = await resp.json();
-      if(d && d.months) {
+      // Accept any object with data (Firebase deletes empty objects like months:{})
+      if(d && typeof d === 'object' && (d.months || d.avatar || d.xp !== undefined || d.todos || d.shopList)) {
         syncStatus="online";
         lastCloudSync=new Date();
         updateSyncUI();
@@ -136,6 +137,23 @@ async function cloudLoad() {
     syncStatus="offline"; updateSyncUI();
     return null;
   }
+}
+
+// Ensure all required data structures exist (Firebase deletes empty objects)
+function ensureData(d) {
+  if(!d) return mkInit();
+  if(!d.months) d.months={};
+  MS.forEach(m=>{ if(!d.months[m]) d.months[m]={income:{},expenses:{},accounts:{}}; });
+  if(!d.stats) d.stats={str:0,int:0,vit:0,luk:0,cha:0};
+  if(!d.avatar) d.avatar={hair:"messy",hairColor:"brown",skin:"medium",eyeColor:"brown",outfit:"tshirt",outfitColor:"blue",accessory:"none"};
+  if(!d.todos) d.todos=[];
+  if(!d.hist) d.hist=[];
+  if(!d.shopList) d.shopList=[];
+  if(!d.reminders) d.reminders=[];
+  if(!d.cq) d.cq={};
+  if(!d.sa) d.sa={};
+  if(d.xp === undefined) d.xp=0;
+  return d;
 }
 
 function updateSyncUI() {
@@ -166,12 +184,11 @@ function schedSave(){
 async function pullFromCloud() {
   if(!playerCode || !data) return;
   const remote = await cloudLoad();
-  if(remote && remote.months) {
+  if(remote) {
     const localTs = data._lastModified || 0;
     const remoteTs = remote._lastModified || 0;
     if(remoteTs > localTs) {
-      // Remote is newer — adopt it
-      data = remote;
+      data = ensureData(remote);
       localSave(data);
       render();
     }
@@ -205,7 +222,6 @@ async function startApp() {
   const localTs = local?._lastModified || 0;
 
   if(cloud && local) {
-    // Both exist: use the one with the most recent timestamp
     data = cloudTs >= localTs ? cloud : local;
   } else if(cloud) {
     data = cloud;
@@ -215,10 +231,8 @@ async function startApp() {
     data = mkInit();
   }
 
-  // Migrate missing fields
-  if(!data.stats) data.stats={str:0,int:0,vit:0,luk:0,cha:0};
-  if(!data.shopList) data.shopList=[];
-  if(!data.reminders) data.reminders=[];
+  // Ensure all data structures exist (Firebase deletes empty objects)
+  data = ensureData(data);
 
   // Save to both (stamp with current time)
   data._lastModified = Date.now();
