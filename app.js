@@ -1,9 +1,14 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// LifeControl RPG — Vanilla JS App
+// LifeControl RPG — Vanilla JS App + Firebase Sync
 // ══════════════════════════════════════════════════════════════════════════════
 
 const SK = "fin-rpg-v6";
 const BAK = ["fin-rpg-bak-1","fin-rpg-bak-2","fin-rpg-bak-3"];
+const FB_URL = "https://lifecontrol-cf790-default-rtdb.firebaseio.com";
+let playerCode = null;
+let syncStatus = "offline"; // "online", "syncing", "offline", "error"
+let lastCloudSync = null;
+let cloudSyncInterval = null;
 
 // ── State ────────────────────────────────────────────────────────────────────
 let data = null;
@@ -28,6 +33,14 @@ let toastTimeout = null;
 let moodTimeout = null;
 let fMood = null;
 let saveTimeout = null;
+let shopText = "";
+let shopCat = "frutas";
+let shopQty = "";
+let shopFilter = "all";
+let remText = "";
+let remPri = "medium";
+let remDate = "";
+let showRemForm = false;
 
 // ── Utils ────────────────────────────────────────────────────────────────────
 function fmt(n){return "$"+(n||0).toLocaleString("en",{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -40,14 +53,16 @@ function mkInit() {
   const b = {
     months:{}, cq:{}, xp:0, sa:{}, todos:[], hist:[],
     stats:{str:0,int:0,vit:0,luk:0,cha:0},
-    avatar:{hair:"messy",hairColor:"brown",skin:"medium",eyeColor:"brown",outfit:"tshirt",outfitColor:"blue",accessory:"none"}
+    avatar:{hair:"messy",hairColor:"brown",skin:"medium",eyeColor:"brown",outfit:"tshirt",outfitColor:"blue",accessory:"none"},
+    shopList:[],
+    reminders:[]
   };
   MS.forEach(m=>{b.months[m]={income:{},expenses:{},accounts:{}};});
   return b;
 }
 
-// ── Guardado robusto ─────────────────────────────────────────────────────────
-function safeSave(d) {
+// ── Guardado robusto (local) ─────────────────────────────────────────────────
+function localSave(d) {
   const s = JSON.stringify(d);
   try{localStorage.setItem(SK,s);}catch(e){}
   BAK.forEach(k=>{try{localStorage.setItem(k,s);}catch(e){}});
@@ -61,7 +76,7 @@ function safeSave(d) {
   }catch(e){}
 }
 
-function safeLoad() {
+function localLoad() {
   const sources = [
     ()=>localStorage.getItem(SK),
     ...BAK.map(k=>()=>localStorage.getItem(k)),
@@ -76,6 +91,66 @@ function safeLoad() {
   return null;
 }
 
+// ── Firebase REST API ────────────────────────────────────────────────────────
+async function cloudSave(d) {
+  if(!playerCode) return false;
+  try {
+    syncStatus="syncing"; updateSyncUI();
+    const resp = await fetch(`${FB_URL}/players/${playerCode}.json`, {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(d)
+    });
+    if(resp.ok) {
+      syncStatus="online";
+      lastCloudSync=new Date();
+      updateSyncUI();
+      return true;
+    }
+    syncStatus="error"; updateSyncUI();
+    return false;
+  } catch(e) {
+    syncStatus="offline"; updateSyncUI();
+    return false;
+  }
+}
+
+async function cloudLoad() {
+  if(!playerCode) return null;
+  try {
+    syncStatus="syncing"; updateSyncUI();
+    const resp = await fetch(`${FB_URL}/players/${playerCode}.json`);
+    if(resp.ok) {
+      const d = await resp.json();
+      if(d && d.months) {
+        syncStatus="online";
+        lastCloudSync=new Date();
+        updateSyncUI();
+        return d;
+      }
+    }
+    syncStatus="online"; updateSyncUI();
+    return null;
+  } catch(e) {
+    syncStatus="offline"; updateSyncUI();
+    return null;
+  }
+}
+
+function updateSyncUI() {
+  const el = $("sync-indicator");
+  if(!el) return;
+  const icons = {online:"🟢", syncing:"🔄", offline:"🟠", error:"🔴"};
+  const labels = {online:"Sincronizado", syncing:"Sincronizando...", offline:"Sin conexión", error:"Error de sync"};
+  el.innerHTML = `${icons[syncStatus]||"⚪"} <span style="font-size:10px;color:#666">${labels[syncStatus]||""}</span>`;
+}
+
+// ── Smart save: local + cloud ────────────────────────────────────────────────
+function safeSave(d) {
+  localSave(d);
+  cloudSave(d); // async, doesn't block
+}
+
 function schedSave(){
   if(saveTimeout) clearTimeout(saveTimeout);
   saveTimeout=setTimeout(()=>{
@@ -83,6 +158,95 @@ function schedSave(){
     lastSaved=new Date();
     render();
   },400);
+}
+
+// ── Periodic cloud sync (pull remote changes) ────────────────────────────────
+async function pullFromCloud() {
+  if(!playerCode || !data) return;
+  const remote = await cloudLoad();
+  if(remote && remote.months) {
+    // Compare timestamps: use the one with more recent history
+    const localLastHist = (data.hist||[])[0]?.date || "";
+    const remoteLastHist = (remote.hist||[])[0]?.date || "";
+    if(remoteLastHist > localLastHist) {
+      // Remote is newer — adopt it
+      data = remote;
+      localSave(data);
+      render();
+    }
+  }
+}
+
+// ── Login ────────────────────────────────────────────────────────────────────
+function loginWithCode() {
+  const input = $("login-code-input");
+  const code = (input?.value||"").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+  if(!code || code.length < 3) {
+    $("login-error").textContent = "El código debe tener al menos 3 caracteres (letras y números)";
+    $("login-error").style.display = "block";
+    return;
+  }
+  playerCode = code;
+  localStorage.setItem("lc-player-code", code);
+  $("login-error").style.display = "none";
+  startApp();
+}
+
+async function startApp() {
+  $("login-screen").style.display = "none";
+  $("loading").style.display = "flex";
+
+  // Try to load from cloud first, fallback to local
+  let d = await cloudLoad();
+  if(!d) {
+    d = localLoad();
+  }
+  if(d) {
+    if(!d.stats) d.stats={str:0,int:0,vit:0,luk:0,cha:0};
+    data = d;
+  } else {
+    data = mkInit();
+  }
+
+  // Save to both local and cloud
+  localSave(data);
+  cloudSave(data);
+
+  // Show app
+  $("loading").style.display = "none";
+  $("app").style.display = "block";
+  render();
+  checkQuests();
+
+  // Start avatar animation
+  function tick(){
+    aFrame++;
+    const level = Math.floor((data.xp||0)/10)+1;
+    $("avatar-container").innerHTML = renderAvatar(data.avatar,level,getAutoMood(),72,aFrame);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // Periodic local save every 60s
+  setInterval(()=>{ if(data){ safeSave(data); lastSaved=new Date(); }}, 60000);
+
+  // Periodic cloud pull every 15s (sync from other devices)
+  cloudSyncInterval = setInterval(pullFromCloud, 15000);
+
+  // Save on tab hide / close
+  const saveNow = ()=>{ if(data){ localSave(data); cloudSave(data); }};
+  document.addEventListener("visibilitychange", saveNow);
+  window.addEventListener("beforeunload", saveNow);
+}
+
+function logout() {
+  if(!confirm("¿Cerrar sesión? Tus datos se mantienen guardados en la nube.")) return;
+  if(cloudSyncInterval) clearInterval(cloudSyncInterval);
+  playerCode = null;
+  localStorage.removeItem("lc-player-code");
+  $("app").style.display = "none";
+  $("login-screen").style.display = "flex";
+  $("login-code-input").value = "";
 }
 
 // ── Cálculos ─────────────────────────────────────────────────────────────────
@@ -272,6 +436,68 @@ function importData(e){
   reader.readAsText(file);
 }
 
+// ── Shopping List ────────────────────────────────────────────────────────────
+function addShopItem(){
+  const input=$("shop-input");
+  const text=(input?input.value:"").trim();
+  if(!text) return;
+  if(!data.shopList) data.shopList=[];
+  data.shopList.push({id:Date.now().toString(), text, qty:shopQty||"", cat:shopCat, done:false, date:todayStr()});
+  if(input) input.value="";
+  shopText=""; shopQty="";
+  schedSave();render();
+}
+function toggleShopItem(id){
+  const item=(data.shopList||[]).find(x=>x.id===id);
+  if(item){
+    item.done=!item.done;
+    if(item.done) flash("✅ Comprado","success");
+    schedSave();checkQuests();render();
+  }
+}
+function deleteShopItem(id){
+  data.shopList=(data.shopList||[]).filter(x=>x.id!==id);
+  schedSave();render();
+}
+function clearDoneShop(){
+  if(!confirm("¿Eliminar todos los items completados?")) return;
+  data.shopList=(data.shopList||[]).filter(x=>!x.done);
+  flash("🧹 Lista limpiada","success");
+  schedSave();render();
+}
+function clearAllShop(){
+  if(!confirm("¿Vaciar toda la lista de compras?")) return;
+  data.shopList=[];
+  flash("🗑️ Lista vaciada","success");
+  schedSave();render();
+}
+
+// ── Reminders ────────────────────────────────────────────────────────────────
+function addReminder(){
+  const input=$("rem-input");
+  const text=(input?input.value:"").trim();
+  if(!text) return;
+  if(!data.reminders) data.reminders=[];
+  data.reminders.push({id:Date.now().toString(), text, priority:remPri, date:remDate||"", done:false});
+  if(input) input.value="";
+  remText=""; remDate="";
+  showRemForm=false;
+  flash("📌 Recordatorio agregado","success");
+  schedSave();render();
+}
+function toggleReminder(id){
+  const rem=(data.reminders||[]).find(x=>x.id===id);
+  if(rem){
+    rem.done=!rem.done;
+    if(rem.done) flash("✅ Recordatorio completado","success");
+    schedSave();render();
+  }
+}
+function deleteReminder(id){
+  data.reminders=(data.reminders||[]).filter(x=>x.id!==id);
+  schedSave();render();
+}
+
 // ── Modal helpers ────────────────────────────────────────────────────────────
 function openExpenseModal(gid,cid,cat,groupName){
   const m=$("modal-expense");
@@ -349,6 +575,7 @@ function render(){
   $("xp-bar-fill").style.background=`linear-gradient(90deg,${rank.c},#FFD700)`;
   $("xp-text").textContent=`${xpCur} / ${xpNext} XP`;
   $("save-indicator").textContent=fmtSaved?`💾 ${fmtSaved}`:"";
+  updateSyncUI();
 
   // Balance + cofres
   const balEl=$("header-balance");
@@ -376,7 +603,8 @@ function render(){
   // ── Settings ──
   $("settings-panel").classList.toggle("hidden",!showSettings);
   if(showSettings){
-    $("settings-save-status").textContent=fmtSaved?`✅ Guardado automáticamente a las ${fmtSaved}`:"⏳ Guardando...";
+    const cloudTime = lastCloudSync ? lastCloudSync.toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}) : null;
+    $("settings-save-status").innerHTML=fmtSaved?`✅ Guardado local: ${fmtSaved}${cloudTime?` &nbsp;·&nbsp; ☁️ Cloud: ${cloudTime}`:""}<br><span style="font-size:10px;color:#888">Código: <b style="color:#FFD700">${playerCode||"—"}</b></span>`:"⏳ Guardando...";
   }
 
   // ── Avatar editor ──
@@ -397,14 +625,16 @@ function render(){
   $("view-expenses").classList.toggle("hidden",view!=="expenses");
   $("view-accounts").classList.toggle("hidden",view!=="accounts");
   $("view-todos").classList.toggle("hidden",view!=="todos");
+  $("view-shopping").classList.toggle("hidden",view!=="shopping");
   $("view-history").classList.toggle("hidden",view!=="history");
 
   // ── Dashboard ──
-  if(view==="dashboard") renderDashboard(ct,rank);
+  if(view==="dashboard"){ renderDashboard(ct,rank); renderReminders(); }
   if(view==="income") renderIncome(ct);
   if(view==="expenses") renderExpenses(ct);
   if(view==="accounts") renderAccounts(ct,startT);
   if(view==="todos") renderTodos(allTodosDay,filteredTodos,doneTodayCount,isToday,dateDisplay);
+  if(view==="shopping") renderShopping();
   if(view==="history") renderHistory();
 
   // ── Nav ──
@@ -739,6 +969,129 @@ function renderHistory(){
   $("hist-list").innerHTML=html;
 }
 
+// ── Shopping List ────────────────────────────────────────────────────────────
+function renderShopping(){
+  const list = data.shopList||[];
+  const filtered = shopFilter==="all"?list:list.filter(x=>x.cat===shopFilter);
+  const pending = list.filter(x=>!x.done).length;
+  const done = list.filter(x=>x.done).length;
+
+  // Header counts
+  $("shop-count").textContent=`${pending} pendiente${pending!==1?"s":""} · ${done} comprado${done!==1?"s":""}`;
+  const pct = list.length>0?(done/list.length)*100:0;
+  $("shop-progress-bar").style.width=pct+"%";
+  $("shop-progress-count").textContent=list.length>0?`${done}/${list.length}`:"Sin items";
+
+  // Category filter
+  let filterHTML=`<button onclick="shopFilter='all';render()" class="tab${shopFilter==='all'?' on':''}" style="color:${shopFilter==='all'?'#FFD700':''}">Todo (${list.length})</button>`;
+  SHOP_CATS.forEach(sc=>{
+    const cnt=list.filter(x=>x.cat===sc.id).length;
+    if(cnt>0) filterHTML+=`<button onclick="shopFilter='${sc.id}';render()" class="tab${shopFilter===sc.id?' on':''}" style="color:${shopFilter===sc.id?sc.c:''}">${sc.icon} ${cnt}</button>`;
+  });
+  $("shop-filter-bar").innerHTML=filterHTML;
+
+  // New item form: category
+  let catSelHTML="";
+  SHOP_CATS.forEach(sc=>{
+    const sel=shopCat===sc.id;
+    catSelHTML+=`<button onclick="shopCat='${sc.id}';render()" style="padding:5px 10px;border-radius:8px;border:1px solid ${sel?sc.c+'88':'rgba(255,255,255,0.07)'};background:${sel?sc.c+'18':'transparent'};color:${sel?sc.c:'#555'};cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;white-space:nowrap;font-weight:600;flex-shrink:0">${sc.icon} ${sc.name}</button>`;
+  });
+  $("shop-cat-selector").innerHTML=catSelHTML;
+
+  // Items list
+  let html="";
+  if(filtered.length===0){
+    html=`<div style="text-align:center;padding:30px;color:#444;font-size:13px">🛒 Sin items${shopFilter!=="all"?" en esta categoría":""}</div>`;
+  } else {
+    // Group by category
+    const groups = {};
+    filtered.forEach(x=>{
+      if(!groups[x.cat]) groups[x.cat]=[];
+      groups[x.cat].push(x);
+    });
+    Object.keys(groups).forEach(catId=>{
+      const cat = SHOP_CATS.find(c=>c.id===catId)||SHOP_CATS[SHOP_CATS.length-1];
+      const items = groups[catId];
+      if(shopFilter==="all") html+=`<div style="font-size:11px;color:${cat.c};font-weight:700;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px">${cat.icon} ${cat.name}</div>`;
+      items.forEach(x=>{
+        html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${x.done?'rgba(46,204,113,0.06)':'rgba(0,0,0,0.15)'};border-radius:10px;border:1px solid ${x.done?'rgba(46,204,113,0.15)':'rgba(255,255,255,0.05)'}">
+          <button onclick="toggleShopItem('${x.id}')" style="width:28px;height:28px;border-radius:8px;border:2px solid ${x.done?'#2ECC71':'rgba(255,255,255,0.15)'};background:${x.done?'rgba(46,204,113,0.2)':'transparent'};cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${x.done?'✓':''}</button>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:${x.done?'#555':'#ddd'};font-weight:600;${x.done?'text-decoration:line-through;opacity:0.6':''}">${x.text}</div>
+            ${x.qty?`<div style="font-size:11px;color:#666;margin-top:2px">Cant: ${x.qty}</div>`:''}
+          </div>
+          <button onclick="deleteShopItem('${x.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:12px;padding:4px">✕</button>
+        </div>`;
+      });
+    });
+  }
+  $("shop-list").innerHTML=html;
+
+  // Action buttons
+  $("shop-actions").innerHTML=done>0?`<div style="display:flex;gap:8px;margin-top:12px">
+    <button onclick="clearDoneShop()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(46,204,113,0.3);background:rgba(46,204,113,0.08);color:#2ECC71;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">🧹 Limpiar comprados (${done})</button>
+    <button onclick="clearAllShop()" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(231,76,60,0.3);background:rgba(231,76,60,0.08);color:#E74C3C;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">🗑️</button>
+  </div>`:"";
+}
+
+// ── Reminders on Dashboard ──────────────────────────────────────────────────
+function renderReminders(){
+  const rems = (data.reminders||[]).filter(x=>!x.done);
+  const container = $("dash-reminders");
+  if(!container) return;
+
+  if(rems.length===0 && !showRemForm){
+    container.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:#555">Sin recordatorios activos</span>
+      <button onclick="showRemForm=true;render()" style="background:linear-gradient(135deg,#FFD700,#FFA726);border:none;color:#000;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;font-family:'Inter',sans-serif">+ Añadir</button>
+    </div>`;
+    return;
+  }
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="font-size:13px;font-weight:700;color:#FFD700">📌 Recordatorios (${rems.length})</span>
+    <button onclick="showRemForm=!showRemForm;render()" style="background:${showRemForm?'rgba(255,255,255,0.05)':'linear-gradient(135deg,#FFD700,#FFA726)'};border:${showRemForm?'1px solid rgba(255,255,255,0.1)':'none'};color:${showRemForm?'#888':'#000'};padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;font-family:'Inter',sans-serif">${showRemForm?'Cancelar':'+ Añadir'}</button>
+  </div>`;
+
+  // Form
+  if(showRemForm){
+    let priHTML="";
+    REMINDER_PRI.forEach(p=>{
+      const sel=remPri===p.id;
+      priHTML+=`<button onclick="remPri='${p.id}';render()" style="padding:5px 10px;border-radius:8px;border:1px solid ${sel?p.c+'88':'rgba(255,255,255,0.07)'};background:${sel?p.c+'18':'transparent'};color:${sel?p.c:'#555'};cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;font-weight:600">${p.icon} ${p.name}</button>`;
+    });
+    html+=`<div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:12px;margin-bottom:12px">
+      <input id="rem-input" class="inp" placeholder="Ej: Pagar luz, Cita médico..." value="${remText}" oninput="remText=this.value" onkeydown="if(event.key==='Enter')addReminder()" style="margin-bottom:8px;font-size:14px"/>
+      <div style="display:flex;gap:6px;margin-bottom:8px">${priHTML}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="date" value="${remDate}" onchange="remDate=this.value" class="inp" style="flex:1;font-size:12px;padding:8px"/>
+        <button onclick="addReminder()" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#FFD700,#FFA726);color:#000;cursor:pointer;font-weight:800;font-size:13px;font-family:'Inter',sans-serif;white-space:nowrap">📌 Guardar</button>
+      </div>
+    </div>`;
+  }
+
+  // List
+  rems.sort((a,b)=>{const po={high:0,medium:1,low:2};return(po[a.priority]||1)-(po[b.priority]||1);});
+  rems.forEach(r=>{
+    const p=REMINDER_PRI.find(x=>x.id===r.priority)||REMINDER_PRI[1];
+    const dateStr=r.date?new Date(r.date+"T12:00:00").toLocaleDateString("es-EC",{day:"numeric",month:"short"}):"";
+    const isOverdue=r.date&&r.date<todayStr();
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${isOverdue?'rgba(231,76,60,0.08)':'rgba(0,0,0,0.15)'};border-radius:10px;border-left:3px solid ${p.c};margin-bottom:6px">
+      <button onclick="toggleReminder('${r.id}')" style="width:26px;height:26px;border-radius:7px;border:2px solid ${p.c}55;background:transparent;cursor:pointer;flex-shrink:0;font-size:12px">○</button>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#ddd;font-weight:600">${r.text}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+          <span style="font-size:10px;color:${p.c}">${p.icon} ${p.name}</span>
+          ${dateStr?`<span style="font-size:10px;color:${isOverdue?'#E74C3C':'#666'}">${isOverdue?'⚠️ ':'📅 '}${dateStr}</span>`:''}
+        </div>
+      </div>
+      <button onclick="deleteReminder('${r.id}')" style="background:none;border:none;color:#444;cursor:pointer;font-size:12px;padding:4px">✕</button>
+    </div>`;
+  });
+
+  container.innerHTML=html;
+}
+
 // ── Avatar Editor ────────────────────────────────────────────────────────────
 function renderAvatarEditor(){
   const opts=[
@@ -773,39 +1126,15 @@ function renderAvatarEditor(){
 // ── INIT ─────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded",()=>{
-  // Load data
-  const d=safeLoad();
-  if(d){
-    if(!d.stats) d.stats={str:0,int:0,vit:0,luk:0,cha:0};
-    data=d;
-  } else {
-    data=mkInit();
-  }
-
-  // Hide loading
   $("loading").style.display="none";
-  $("app").style.display="block";
 
-  // Initial render
-  render();
-  checkQuests();
-
-  // Avatar animation
-  let animId;
-  function tick(){aFrame++;
-    // Only update avatar, not full render
-    const ct=calcM(data,month);
-    const level=Math.floor((data.xp||0)/10)+1;
-    $("avatar-container").innerHTML=renderAvatar(data.avatar,level,getAutoMood(),72,aFrame);
-    animId=requestAnimationFrame(tick);
+  // Check for saved player code
+  const savedCode = localStorage.getItem("lc-player-code");
+  if(savedCode) {
+    playerCode = savedCode;
+    $("login-screen").style.display = "none";
+    startApp();
+  } else {
+    $("login-screen").style.display = "flex";
   }
-  animId=requestAnimationFrame(tick);
-
-  // Periodic save
-  setInterval(()=>{if(data){safeSave(data);lastSaved=new Date();}},60000);
-
-  // Save on visibility change / unload
-  const saveNow=()=>{if(data) safeSave(data);};
-  document.addEventListener("visibilitychange",saveNow);
-  window.addEventListener("beforeunload",saveNow);
 });

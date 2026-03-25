@@ -13,6 +13,29 @@
 </head>
 <body>
 
+<!-- ═══════════════════════════ LOGIN SCREEN ═══════════════════════════════ -->
+<div id="login-screen" class="login-screen" style="display:none">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:52px;margin-bottom:12px">⚔️</div>
+      <div class="rpg" style="font-size:14px;color:#FFD700;letter-spacing:2px">LIFECONTROL</div>
+      <div style="font-size:12px;color:#555;margin-top:8px">Tu aventura financiera RPG</div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:12px;color:#888;margin-bottom:8px;font-weight:600">Código de partida</div>
+      <div style="font-size:11px;color:#555;margin-bottom:12px">Usa el mismo código en todos tus dispositivos para sincronizar</div>
+      <input id="login-code-input" class="inp" type="text" placeholder="ej: angel2026" autocomplete="off" autocapitalize="off" spellcheck="false"
+        onkeydown="if(event.key==='Enter')loginWithCode()"
+        style="font-size:18px;padding:14px;text-align:center;letter-spacing:2px"/>
+    </div>
+    <div id="login-error" style="display:none;font-size:12px;color:#E74C3C;text-align:center;margin-bottom:10px"></div>
+    <button onclick="loginWithCode()" style="width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#FFD700,#FFA726);color:#000;cursor:pointer;font-weight:800;font-size:16px;font-family:'Inter',sans-serif;box-shadow:0 4px 18px rgba(255,215,0,0.25);margin-top:8px">⚔️ ENTRAR</button>
+    <div style="text-align:center;margin-top:16px;font-size:10px;color:#444">
+      🔒 Tus datos se sincronizan en la nube entre dispositivos
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ LOADING ═══════════════════════════════════ -->
 <div id="loading" class="loading">
   <div style="text-align:center">
@@ -52,6 +75,7 @@
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#555">
             <span id="xp-text"></span>
+            <span id="sync-indicator" style="display:flex;align-items:center;gap:4px"></span>
             <span id="save-indicator"></span>
           </div>
         </div>
@@ -90,7 +114,8 @@
         <input type="file" accept=".json" onchange="importData(event)" style="display:none"/>
       </label>
     </div>
-    <button onclick="if(confirm('¿Seguro? Se perderá todo el progreso.')){data=mkInit();schedSave();render();}" style="width:100%;padding:10px;border-radius:10px;background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.4);color:#E74C3C;cursor:pointer;font-weight:700">⚠️ Resetear Todo</button>
+    <button onclick="if(confirm('¿Seguro? Se perderá todo el progreso.')){data=mkInit();schedSave();render();}" style="width:100%;padding:10px;border-radius:10px;background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.4);color:#E74C3C;cursor:pointer;font-weight:700;margin-bottom:8px">⚠️ Resetear Todo</button>
+    <button onclick="logout()" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:#888;cursor:pointer;font-weight:600;font-size:12px">🚪 Cerrar Sesión</button>
   </div>
 
   <!-- ═══════════════════ AVATAR EDITOR ════════════════════════════════════ -->
@@ -146,6 +171,8 @@
       </div>
       <div id="dash-tasks-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
+    <!-- Reminders -->
+    <div id="dash-reminders" class="card" style="border-color:rgba(255,215,0,0.12);margin-top:12px"></div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -277,11 +304,11 @@
       <!-- Area selector -->
       <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Área</div>
       <div id="todo-area-selector" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px"></div>
-      <!-- Difficulty + add button -->
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div id="todo-dif-selector" style="display:flex;gap:5px"></div>
-        <button onclick="todoText=document.getElementById('todo-input').value;addTodo()" style="background:linear-gradient(135deg,#FF6B35,#FF8C42);border:none;color:#fff;padding:9px 22px;border-radius:10px;cursor:pointer;font-weight:800;font-size:14px;box-shadow:0 4px 14px rgba(255,107,53,0.3)">+ AÑADIR</button>
-      </div>
+      <!-- Difficulty -->
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Dificultad</div>
+      <div id="todo-dif-selector" style="display:flex;gap:5px;margin-bottom:12px"></div>
+      <!-- Add button full width -->
+      <button onclick="todoText=document.getElementById('todo-input').value;addTodo()" style="width:100%;background:linear-gradient(135deg,#FF6B35,#FF8C42);border:none;color:#fff;padding:12px;border-radius:10px;cursor:pointer;font-weight:800;font-size:14px;box-shadow:0 4px 14px rgba(255,107,53,0.3);font-family:'Inter',sans-serif">+ AÑADIR MISIÓN</button>
     </div>
 
     <!-- Area filter -->
@@ -290,6 +317,46 @@
     <!-- Todo list -->
     <div class="card">
       <div id="todo-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: SHOPPING ══════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-shopping" class="hidden">
+    <div class="card" style="border-color:rgba(76,175,80,0.2);padding:13px 15px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:26px">🛒</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;color:#4CAF50">LISTA DEL SUPER</div>
+          <div id="shop-count" style="font-size:11px;color:#555;margin-top:2px"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:5px">
+        <span>Progreso</span>
+        <span id="shop-progress-count" style="color:#4CAF50;font-weight:700"></span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden">
+        <div id="shop-progress-bar" style="height:100%;background:linear-gradient(90deg,#4CAF50,#81C784);transition:0.4s"></div>
+      </div>
+    </div>
+    <!-- New item form -->
+    <div class="card" style="border-color:rgba(76,175,80,0.12);margin-bottom:12px">
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Agregar Producto</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="shop-input" class="inp" placeholder="Ej: Leche, Pan, Manzanas..." onkeydown="if(event.key==='Enter')addShopItem()" style="flex:1;font-size:15px;padding:12px"/>
+        <input placeholder="Cant." value="" oninput="shopQty=this.value" class="inp" style="width:70px;text-align:center;font-size:14px;padding:12px"/>
+      </div>
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Categoría</div>
+      <div id="shop-cat-selector" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px"></div>
+      <button onclick="addShopItem()" style="width:100%;background:linear-gradient(135deg,#4CAF50,#66BB6A);border:none;color:#fff;padding:12px;border-radius:10px;cursor:pointer;font-weight:800;font-size:14px;font-family:'Inter',sans-serif;box-shadow:0 4px 14px rgba(76,175,80,0.3)">+ AGREGAR</button>
+    </div>
+    <!-- Category filter -->
+    <div id="shop-filter-bar" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px"></div>
+    <!-- Shopping list -->
+    <div class="card">
+      <div id="shop-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="shop-actions"></div>
     </div>
   </div>
 
@@ -367,6 +434,7 @@
     <button id="nav-expenses" class="nb" onclick="setView('expenses')"><span class="nb-icon" style="font-size:18px">🛡️</span><span>Gastos</span></button>
     <button id="nav-accounts" class="nb" onclick="setView('accounts')"><span class="nb-icon" style="font-size:18px">🏦</span><span>Cofres</span></button>
     <button id="nav-todos" class="nb" onclick="setView('todos')"><span class="nb-icon" style="font-size:18px">📋</span><span>Tareas</span></button>
+    <button id="nav-shopping" class="nb" onclick="setView('shopping')"><span class="nb-icon" style="font-size:18px">🛒</span><span>Compras</span></button>
     <button id="nav-history" class="nb" onclick="setView('history')"><span class="nb-icon" style="font-size:18px">📖</span><span>Historial</span></button>
   </div>
 </div>

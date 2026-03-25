@@ -8,10 +8,10 @@ function clr(hex, n) {
 }
 
 // ── Apariencia Avatar ────────────────────────────────────────────────────────
-const SKINS = {light:"#FDBCB4",medium:"#D4A574",tan:"#C68642",brown:"#8D5524",dark:"#5C3A1E"};
-const HAIRS = {black:"#1C1C2E",brown:"#5D4037",red:"#C62828",blonde:"#FFD54F",blue:"#1565C0",pink:"#E91E63",white:"#ECEFF1",green:"#2E7D32",purple:"#7B1FA2",orange:"#E65100"};
-const OUTFITS = {gray:"#546E7A",blue:"#1565C0",red:"#C62828",green:"#2E7D32",purple:"#6A1B9A",black:"#263238",gold:"#F9A825",teal:"#00838F"};
-const EYES = {brown:"#3E2723",blue:"#0D47A1",green:"#1B5E20",amber:"#FF6F00",redE:"#B71C1C",violet:"#4A148C"};
+const SKINS = {light:"#FDBCB4",medium:"#D4A574",tan:"#C68642",brown:"#8D5524",dark:"#5C3A1E",pale:"#FFE0D0",olive:"#B08D57"};
+const HAIRS = {black:"#1C1C2E",brown:"#5D4037",red:"#C62828",blonde:"#FFD54F",blue:"#1565C0",pink:"#E91E63",white:"#ECEFF1",green:"#2E7D32",purple:"#7B1FA2",orange:"#E65100",silver:"#90A4AE",teal:"#00897B"};
+const OUTFITS = {gray:"#546E7A",blue:"#1565C0",red:"#C62828",green:"#2E7D32",purple:"#6A1B9A",black:"#263238",gold:"#F9A825",teal:"#00838F",pink:"#AD1457",navy:"#1A237E",crimson:"#880E4F",forest:"#1B5E20"};
+const EYES = {brown:"#3E2723",blue:"#0D47A1",green:"#1B5E20",amber:"#FF6F00",redE:"#B71C1C",violet:"#4A148C",cyan:"#006064",gold:"#F57F17"};
 
 // ── Meses ────────────────────────────────────────────────────────────────────
 const MS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -77,7 +77,8 @@ const QS = [
   {id:"q3",n:"Actualiza cofres",xp:10,ck:(d,m)=>Object.values(d.months[m]?.accounts||{}).some(v=>v>0)},
   {id:"q4",n:"Balance positivo",xp:20,ck:(d,m)=>{let i=Object.values(d.months[m]?.income||{}).reduce((a,b)=>a+b,0);let e=0;Object.values(d.months[m]?.expenses||{}).forEach(g=>Object.values(g).forEach(v=>e+=v));return i>0&&i>e}},
   {id:"q5",n:"Ahorra 20%",xp:30,ck:(d,m)=>{let i=Object.values(d.months[m]?.income||{}).reduce((a,b)=>a+b,0);let e=0;Object.values(d.months[m]?.expenses||{}).forEach(g=>Object.values(g).forEach(v=>e+=v));return i>0&&((i-e)/i)>=0.2}},
-  {id:"q6",n:"3 tareas completadas hoy",xp:15,ck:d=>{let td=new Date().toISOString().slice(0,10);return(d.todos||[]).filter(t=>t.done&&t.date===td).length>=3}}
+  {id:"q6",n:"3 tareas completadas hoy",xp:15,ck:d=>{let td=new Date().toISOString().slice(0,10);return(d.todos||[]).filter(t=>t.done&&t.date===td).length>=3}},
+  {id:"q7",n:"Lista del super completa",xp:10,ck:d=>(d.shopList||[]).filter(x=>x.done).length>=5}
 ];
 
 // ── Áreas (stats del personaje) ──────────────────────────────────────────────
@@ -90,9 +91,28 @@ const AREAS = [
 ];
 
 // ── IDs de personalización ───────────────────────────────────────────────────
-const HAIR_IDS = ["messy","spiky","long","curly","mohawk","buzz"];
-const OUT_IDS  = ["tshirt","armor","hoodie","suit","wizard","cape"];
-const ACC_IDS  = ["none","crown","headband","glasses","halo","horns","headphones","cap"];
+const HAIR_IDS = ["messy","spiky","long","curly","mohawk","buzz","ponytail","twintails","bald"];
+const OUT_IDS  = ["tshirt","armor","hoodie","suit","wizard","cape","kimono","sport","punk"];
+const ACC_IDS  = ["none","crown","headband","glasses","halo","horns","headphones","cap","earring","scarf","eyepatch","mask"];
+
+// ── Categorías de compras ────────────────────────────────────────────────────
+const SHOP_CATS = [
+  {id:"frutas",name:"Frutas y Verduras",icon:"🥬",c:"#4CAF50"},
+  {id:"carnes",name:"Carnes y Proteínas",icon:"🥩",c:"#E74C3C"},
+  {id:"lacteos",name:"Lácteos",icon:"🧀",c:"#FFC107"},
+  {id:"panaderia",name:"Panadería y Cereales",icon:"🍞",c:"#F57C00"},
+  {id:"bebidas",name:"Bebidas",icon:"🥤",c:"#29B6F6"},
+  {id:"limpieza",name:"Limpieza y Hogar",icon:"🧹",c:"#7E57C2"},
+  {id:"higiene",name:"Higiene Personal",icon:"🧴",c:"#26A69A"},
+  {id:"otros",name:"Otros",icon:"📦",c:"#78909C"}
+];
+
+// ── Prioridades de recordatorios ─────────────────────────────────────────────
+const REMINDER_PRI = [
+  {id:"high",name:"Alta",icon:"🔴",c:"#E74C3C"},
+  {id:"medium",name:"Media",icon:"🟡",c:"#F39C12"},
+  {id:"low",name:"Baja",icon:"🟢",c:"#2ECC71"}
+];
 
 // ── Navegación ───────────────────────────────────────────────────────────────
 const NAV = [
@@ -101,5 +121,6 @@ const NAV = [
   {id:"expenses", icon:"🛡️",label:"Gastos"},
   {id:"accounts", icon:"🏦",label:"Cofres"},
   {id:"todos",    icon:"📋",label:"Tareas"},
+  {id:"shopping", icon:"🛒",label:"Compras"},
   {id:"history",  icon:"📖",label:"Historial"},
 ];
