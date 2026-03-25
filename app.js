@@ -96,6 +96,7 @@ async function cloudSave(d) {
   if(!playerCode) return false;
   try {
     syncStatus="syncing"; updateSyncUI();
+    d._lastModified = Date.now(); // millisecond timestamp for sync
     const resp = await fetch(`${FB_URL}/players/${playerCode}.json`, {
       method: "PUT",
       headers: {"Content-Type": "application/json"},
@@ -147,6 +148,7 @@ function updateSyncUI() {
 
 // ── Smart save: local + cloud ────────────────────────────────────────────────
 function safeSave(d) {
+  d._lastModified = Date.now();
   localSave(d);
   cloudSave(d); // async, doesn't block
 }
@@ -165,10 +167,9 @@ async function pullFromCloud() {
   if(!playerCode || !data) return;
   const remote = await cloudLoad();
   if(remote && remote.months) {
-    // Compare timestamps: use the one with more recent history
-    const localLastHist = (data.hist||[])[0]?.date || "";
-    const remoteLastHist = (remote.hist||[])[0]?.date || "";
-    if(remoteLastHist > localLastHist) {
+    const localTs = data._lastModified || 0;
+    const remoteTs = remote._lastModified || 0;
+    if(remoteTs > localTs) {
       // Remote is newer — adopt it
       data = remote;
       localSave(data);
@@ -196,19 +197,31 @@ async function startApp() {
   $("login-screen").style.display = "none";
   $("loading").style.display = "flex";
 
-  // Try to load from cloud first, fallback to local
-  let d = await cloudLoad();
-  if(!d) {
-    d = localLoad();
-  }
-  if(d) {
-    if(!d.stats) d.stats={str:0,int:0,vit:0,luk:0,cha:0};
-    data = d;
+  // Load from both sources and pick the newest
+  const cloud = await cloudLoad();
+  const local = localLoad();
+  
+  const cloudTs = cloud?._lastModified || 0;
+  const localTs = local?._lastModified || 0;
+
+  if(cloud && local) {
+    // Both exist: use the one with the most recent timestamp
+    data = cloudTs >= localTs ? cloud : local;
+  } else if(cloud) {
+    data = cloud;
+  } else if(local) {
+    data = local;
   } else {
     data = mkInit();
   }
 
-  // Save to both local and cloud
+  // Migrate missing fields
+  if(!data.stats) data.stats={str:0,int:0,vit:0,luk:0,cha:0};
+  if(!data.shopList) data.shopList=[];
+  if(!data.reminders) data.reminders=[];
+
+  // Save to both (stamp with current time)
+  data._lastModified = Date.now();
   localSave(data);
   cloudSave(data);
 
@@ -230,8 +243,8 @@ async function startApp() {
   // Periodic local save every 60s
   setInterval(()=>{ if(data){ safeSave(data); lastSaved=new Date(); }}, 60000);
 
-  // Periodic cloud pull every 15s (sync from other devices)
-  cloudSyncInterval = setInterval(pullFromCloud, 15000);
+  // Periodic cloud pull every 5s (sync from other devices)
+  cloudSyncInterval = setInterval(pullFromCloud, 5000);
 
   // Save on tab hide / close
   const saveNow = ()=>{ if(data){ localSave(data); cloudSave(data); }};
