@@ -1,0 +1,212 @@
+/* ── LifeControl RPG — Responsive Styles ─────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  min-height:100vh;
+  min-height:100dvh;
+  background:#070b13;
+  font-family:'Inter',sans-serif;
+  color:#e0e0e0;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Animaciones ──────────────────────────────────────────────────────────── */
+@keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-130px) scale(0)}}
+@keyframes pGlow{0%,100%{box-shadow:0 0 12px rgba(255,215,0,0.08)}50%{box-shadow:0 0 28px rgba(255,215,0,0.28)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.app-container{
+  max-width:540px;
+  margin:0 auto;
+  padding:14px 13px 94px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+.card{
+  background:rgba(16,20,34,0.98);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.45);
+  animation:slideUp 0.25s ease-out;
+  position:relative;
+  overflow:hidden;
+}
+.card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);
+}
+
+/* ── Nav Buttons ──────────────────────────────────────────────────────────── */
+.nb{
+  background:rgba(14,18,30,0.99);border:1px solid rgba(255,255,255,0.06);
+  color:#555;padding:8px 3px;border-radius:11px;cursor:pointer;
+  font-size:9px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  flex:1;transition:all 0.2s;font-family:'Inter',sans-serif;font-weight:600;
+}
+.nb.on{color:#FFD700;border-color:rgba(255,215,0,0.4);background:rgba(255,215,0,0.07)}
+.nb:hover:not(.on){color:#aaa;border-color:rgba(255,255,255,0.12)}
+.nb:active{transform:scale(0.95)}
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+.inp{
+  background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.09);
+  color:#e0e0e0;padding:10px 12px;border-radius:10px;
+  font-family:'Inter',sans-serif;font-size:14px;width:100%;
+  outline:none;transition:0.2s;
+  -webkit-appearance:none;
+}
+.inp:focus{border-color:#FFD700;background:rgba(255,215,0,0.04);box-shadow:0 0 0 3px rgba(255,215,0,0.06)}
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+.toast{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%);
+  padding:11px 22px;border-radius:12px;z-index:1001;animation:slideUp 0.3s;
+  font-size:13px;font-weight:700;border:1.5px solid;max-width:88vw;
+  background:rgba(10,14,24,0.97);backdrop-filter:blur(14px);white-space:nowrap;
+}
+
+/* ── RPG Font ─────────────────────────────────────────────────────────────── */
+.rpg{font-family:'Press Start 2P',monospace}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{height:3px;width:3px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
+
+/* ── Pill badges ──────────────────────────────────────────────────────────── */
+.pill{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;border:1px solid;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.tab{
+  padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.07);
+  background:rgba(0,0,0,0.25);color:#555;cursor:pointer;font-size:12px;
+  font-family:'Inter',sans-serif;white-space:nowrap;transition:0.2s;
+  font-weight:600;flex-shrink:0;
+}
+.tab.on{border-color:currentColor;background:rgba(255,255,255,0.07)}
+.tab:active{transform:scale(0.95)}
+
+/* ── Bottom Nav ───────────────────────────────────────────────────────────── */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:9px 11px;
+  padding-bottom:max(9px, env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,transparent 0%,rgba(5,8,16,0.99) 30%);
+  z-index:100;backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+.bottom-nav-inner{display:flex;gap:5px;max-width:540px;margin:0 auto}
+
+/* ── Modal Overlay ────────────────────────────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.9);
+  z-index:1000;display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+
+/* ── Particles ────────────────────────────────────────────────────────────── */
+.particles{position:fixed;inset:0;pointer-events:none;z-index:999}
+.particle{
+  position:absolute;width:7px;height:7px;border-radius:50%;
+  animation:floatUp var(--dur) ease-out forwards;
+  animation-delay:var(--delay);
+}
+
+/* ── Loading ──────────────────────────────────────────────────────────────── */
+.loading{
+  min-height:100vh;min-height:100dvh;display:flex;align-items:center;
+  justify-content:center;background:#080818;color:#FFD700;
+  font-family:monospace;
+}
+
+/* ── Utility button ───────────────────────────────────────────────────────── */
+button{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}
+
+/* ── Header card ──────────────────────────────────────────────────────────── */
+.header-card{
+  padding:14px 16px;
+  background:linear-gradient(145deg,rgba(20,26,44,1),rgba(10,13,22,1));
+  animation:pGlow 4s infinite;
+  border:1px solid rgba(255,215,0,0.1);
+}
+
+/* ── Months scroll ────────────────────────────────────────────────────────── */
+.months-scroll{
+  display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.months-scroll::-webkit-scrollbar{display:none}
+
+/* ── Grid ─────────────────────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.avatar-editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.settings-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.accounts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ── Flex helpers ─────────────────────────────────────────────────────────── */
+.flex-row{display:flex;align-items:center}
+.flex-col{display:flex;flex-direction:column}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.flex-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}.gap-13{gap:13px}
+
+/* ── Hidden ───────────────────────────────────────────────────────────────── */
+.hidden{display:none!important}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ── RESPONSIVE — Mobile First ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+@media(max-width:480px){
+  .app-container{padding:10px 10px 90px}
+  .card{padding:13px;border-radius:14px}
+  .stats-grid{grid-template-columns:repeat(5,1fr);gap:5px}
+  .stats-grid .stat-item{padding:6px 3px}
+  .stats-grid .stat-icon{font-size:15px;margin-bottom:2px}
+  .stats-grid .stat-name{font-size:8px}
+  .stats-grid .stat-lv{font-size:9px}
+  .avatar-editor-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .nb{font-size:8px;padding:7px 2px;gap:2px}
+  .nb .nb-icon{font-size:16px}
+  .modal-overlay{padding:12px}
+  .modal-card{padding:18px}
+  .accounts-grid{grid-template-columns:1fr}
+}
+
+@media(max-width:360px){
+  .app-container{padding:8px 8px 88px}
+  .stats-grid{grid-template-columns:repeat(3,1fr);gap:5px}
+  .nb{font-size:7px;padding:6px 1px}
+  .nb .nb-icon{font-size:14px}
+}
+
+@media(min-width:481px) and (max-width:768px){
+  .app-container{padding:14px 16px 94px}
+}
+
+/* ── Touch improvements ───────────────────────────────────────────────────── */
+@media(hover:none){
+  .nb:hover:not(.on){color:#555;border-color:rgba(255,255,255,0.06)}
+  .tab:hover{background:rgba(0,0,0,0.25)}
+  button:active,.tab:active,.nb:active{transform:scale(0.96)}
+}
+
+/* ── PWA safe area for notch phones ───────────────────────────────────────── */
+@supports(padding: env(safe-area-inset-bottom)){
+  .bottom-nav{
+    padding-bottom:calc(9px + env(safe-area-inset-bottom));
+  }
+  .app-container{
+    padding-bottom:calc(94px + env(safe-area-inset-bottom));
+  }
+}

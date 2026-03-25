@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#070b13"/>
+  <meta name="description" content="LifeControl RPG — Controla tus finanzas como un RPG. Registra ingresos, gastos, tareas y sube de nivel."/>
+  <title>LifeControl RPG — Finanzas Personales</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════ LOADING ═══════════════════════════════════ -->
+<div id="loading" class="loading">
+  <div style="text-align:center">
+    <div style="font-size:42px;animation:pulse 1s infinite">⚔️</div>
+    <div style="font-size:12px;margin-top:12px;color:#888">Cargando partida...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ TOAST ═════════════════════════════════════ -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<!-- ═══════════════════════════ PARTICLES ═════════════════════════════════ -->
+<div id="particles" class="particles" style="display:none"></div>
+
+<!-- ═══════════════════════════ APP ═══════════════════════════════════════ -->
+<div id="app" style="display:none">
+<div class="app-container">
+
+  <!-- ═══════════════════ HEADER ═══════════════════════════════════════════ -->
+  <div class="card header-card">
+    <div style="display:flex;gap:13px;align-items:stretch">
+      <!-- Avatar -->
+      <div onclick="showAv=!showAv;render()" style="cursor:pointer;flex-shrink:0;background:rgba(0,0,0,0.45);border-radius:12px;padding:6px;border:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center" id="avatar-container"></div>
+      <!-- Character data -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div id="rank-badge" class="rpg" style="font-size:8px;letter-spacing:1px"></div>
+            <div id="level-info" style="font-size:11px;color:#666;margin-top:3px;font-weight:600"></div>
+          </div>
+          <button onclick="showSettings=!showSettings;render()" style="background:transparent;border:none;color:#555;font-size:17px;cursor:pointer;padding:0;line-height:1">⚙️</button>
+        </div>
+        <!-- XP Bar -->
+        <div>
+          <div style="height:5px;background:rgba(0,0,0,0.6);border-radius:4px;overflow:hidden">
+            <div id="xp-bar-fill" style="height:100%;border-radius:4px;transition:width 0.6s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:10px;color:#555">
+            <span id="xp-text"></span>
+            <span id="save-indicator"></span>
+          </div>
+        </div>
+        <!-- Balance + Cofres -->
+        <div style="display:flex;gap:8px">
+          <div id="header-balance" style="flex:1;border-radius:8px;padding:6px 10px;border:1px solid;text-align:center">
+            <div style="font-size:9px;color:#555;margin-bottom:2px">Balance</div>
+            <div id="header-balance-val" style="font-size:13px;font-weight:800"></div>
+          </div>
+          <div style="flex:1;background:rgba(255,215,0,0.06);border-radius:8px;padding:6px 10px;border:1px solid rgba(255,215,0,0.14);text-align:center">
+            <div style="font-size:9px;color:#555;margin-bottom:2px">Cofres</div>
+            <div id="header-cofres-val" style="font-size:13px;font-weight:800;color:#FFD700"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ STATS ════════════════════════════════════════════ -->
+  <div class="card" style="padding:14px 16px">
+    <div style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;font-weight:700">Atributos del Personaje</div>
+    <div id="stats-grid" class="stats-grid"></div>
+  </div>
+
+  <!-- ═══════════════════ SETTINGS ═════════════════════════════════════════ -->
+  <div id="settings-panel" class="card hidden" style="border:1px solid rgba(255,215,0,0.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:14px;font-weight:700;color:#FFD700">⚙️ Ajustes de Partida</span>
+      <button onclick="showSettings=false;render()" style="background:none;border:none;color:#555;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="settings-save-status" style="font-size:11px;color:#555;margin-bottom:12px;padding:8px 12px;background:rgba(46,204,113,0.05);border:1px solid rgba(46,204,113,0.15);border-radius:8px"></div>
+    <div class="settings-buttons">
+      <button onclick="exportData()" style="padding:12px;border-radius:10px;background:rgba(46,204,113,0.1);border:1px solid #2ECC71;color:#2ECC71;cursor:pointer;font-weight:700;font-size:13px">💾 Exportar</button>
+      <label style="padding:12px;border-radius:10px;background:rgba(52,152,219,0.1);border:1px solid #3498DB;color:#3498DB;cursor:pointer;font-weight:700;font-size:13px;text-align:center;display:flex;align-items:center;justify-content:center">
+        📂 Importar
+        <input type="file" accept=".json" onchange="importData(event)" style="display:none"/>
+      </label>
+    </div>
+    <button onclick="if(confirm('¿Seguro? Se perderá todo el progreso.')){data=mkInit();schedSave();render();}" style="width:100%;padding:10px;border-radius:10px;background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.4);color:#E74C3C;cursor:pointer;font-weight:700">⚠️ Resetear Todo</button>
+  </div>
+
+  <!-- ═══════════════════ AVATAR EDITOR ════════════════════════════════════ -->
+  <div id="avatar-editor" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <span style="font-weight:700;color:#FFD700;font-size:14px">🎨 Personalizar Héroe</span>
+      <button onclick="showAv=false;render()" style="background:none;border:none;color:#555;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="avatar-editor-grid" class="avatar-editor-grid"></div>
+  </div>
+
+  <!-- ═══════════════════ MONTHS ═══════════════════════════════════════════ -->
+  <div id="months-bar" class="months-scroll"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: DASHBOARD ═════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-dashboard">
+    <!-- Balance card -->
+    <div id="dash-balance-card" class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <div id="dash-month" style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:2px;margin-bottom:5px"></div>
+          <div id="dash-balance" style="font-size:20px;line-height:1.3"></div>
+        </div>
+        <div style="text-align:right">
+          <div id="dash-inc" style="font-size:12px;color:#2ECC71;font-weight:700;margin-bottom:4px"></div>
+          <div id="dash-exp" style="font-size:12px;color:#E74C3C;font-weight:700"></div>
+          <div id="dash-save-pct" style="font-size:10px;margin-top:5px;font-weight:700"></div>
+        </div>
+      </div>
+      <div id="dash-balance-bar" style="height:7px;display:flex;border-radius:5px;overflow:hidden;gap:2px">
+        <div id="dash-bar-inc" style="background:linear-gradient(90deg,#27AE60,#2ECC71);border-radius:5px 0 0 5px"></div>
+        <div id="dash-bar-exp" style="background:linear-gradient(90deg,#E74C3C,#C0392B);border-radius:0 5px 5px 0"></div>
+      </div>
+    </div>
+    <!-- Expense breakdown -->
+    <div id="dash-expense-breakdown" class="card hidden" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font-size:13px;font-weight:700;color:#eee">Desglose de Gastos</span>
+        <span id="dash-exp-total" style="font-size:11px;color:#E74C3C;font-weight:700"></span>
+      </div>
+      <div id="dash-exp-list"></div>
+    </div>
+    <!-- Today tasks summary -->
+    <div id="dash-today-tasks" class="card hidden" style="border-color:rgba(255,107,53,0.18)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+        <span style="font-size:13px;font-weight:700;color:#FF6B35">📋 Tareas de Hoy</span>
+        <span id="dash-tasks-count" style="font-size:12px;color:#FF6B35;font-weight:700"></span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-bottom:10px">
+        <div id="dash-tasks-bar" style="height:100%;background:linear-gradient(90deg,#FF6B35,#FFD700);transition:0.4s"></div>
+      </div>
+      <div id="dash-tasks-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: INCOME ════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-income" class="hidden">
+    <div class="card" style="border-color:rgba(46,204,113,0.2);padding:13px 15px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:26px">💰</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;color:#2ECC71">BOTÍN MENSUAL</div>
+          <div id="inc-month" style="font-size:11px;color:#555;margin-top:2px"></div>
+        </div>
+        <div id="inc-total" class="rpg" style="font-size:13px;color:#2ECC71"></div>
+      </div>
+    </div>
+    <div id="inc-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: EXPENSES ══════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-expenses" class="hidden">
+    <div class="card" style="border-color:rgba(231,76,60,0.2);padding:13px 15px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:26px">🛡️</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;color:#E74C3C">GASTOS DEL MES</div>
+          <div id="exp-month" style="font-size:11px;color:#555;margin-top:2px"></div>
+        </div>
+        <div id="exp-total" class="rpg" style="font-size:13px;color:#E74C3C"></div>
+      </div>
+    </div>
+    <div id="exp-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: ACCOUNTS ══════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-accounts" class="hidden">
+    <!-- Cuadre del mes -->
+    <div class="card" style="border-color:rgba(255,215,0,0.15);margin-bottom:12px">
+      <div id="acc-cuadre-month" style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:14px"></div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(0,0,0,0.15);border-radius:8px">
+          <span style="font-size:16px;width:22px;text-align:center">🗝️</span>
+          <span style="flex:1;font-size:13px;color:#bbb">Saldo inicial (cuentas)</span>
+          <span id="acc-start-val" style="font-size:14px;font-weight:700;color:#FFD700"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px">
+          <span style="font-size:16px;width:22px;text-align:center">💰</span>
+          <span style="flex:1;font-size:13px;color:#bbb">Ingresos registrados</span>
+          <span id="acc-inc-val" style="font-size:14px;font-weight:700;color:#2ECC71"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(0,0,0,0.15);border-radius:8px">
+          <span style="font-size:16px;width:22px;text-align:center">🛡️</span>
+          <span style="flex:1;font-size:13px;color:#bbb">Gastos registrados</span>
+          <span id="acc-exp-val" style="font-size:14px;font-weight:700;color:#E74C3C"></span>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,0.08);margin:8px 0"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0">
+          <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.08);text-align:center">
+            <div style="font-size:10px;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Esperado</div>
+            <div id="acc-esperado" style="font-size:16px;font-weight:700;color:#aaa"></div>
+            <div style="font-size:10px;color:#444;margin-top:3px">según los registros</div>
+          </div>
+          <div style="padding:10px;background:rgba(26,188,156,0.07);border-radius:10px;border:1px solid rgba(26,188,156,0.2);text-align:center">
+            <div style="font-size:10px;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Real</div>
+            <div id="acc-real" style="font-size:16px;font-weight:700;color:#1ABC9C"></div>
+            <div style="font-size:10px;color:#444;margin-top:3px">lo que ingresaste</div>
+          </div>
+        </div>
+        <div id="acc-dif-box" style="padding:10px 14px;border-radius:10px;border:1px solid;margin-top:4px">
+          <div id="acc-dif-label" style="font-size:11px;font-weight:700"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Account list -->
+    <div id="acc-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <!-- Initial balances (collapsible) -->
+    <div class="card" style="padding:0;border-color:rgba(255,215,0,0.1);margin-top:12px">
+      <div onclick="toggleInitEdit()" style="display:flex;align-items:center;gap:12px;padding:13px 15px;cursor:pointer">
+        <span style="font-size:18px">🗝️</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#FFD700">Configurar Saldos Iniciales</div>
+          <div style="font-size:11px;color:#555;margin-top:1px">Cuánto tenías al empezar (se usa para el cuadre)</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="acc-init-total" style="font-size:13px;color:#FFD700;font-weight:700"></span>
+          <span id="acc-init-arrow" style="font-size:10px;color:#444;transition:0.2s;display:inline-block">▶</span>
+        </div>
+      </div>
+      <div id="acc-init-panel" class="hidden" style="padding:0 14px 14px">
+        <div id="acc-init-grid" class="accounts-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: TODOS ═════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-todos" class="hidden">
+    <!-- Day navigator -->
+    <div class="card" style="padding:13px 15px;border-color:rgba(255,107,53,0.18);margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div id="todo-date-display" style="font-weight:700;font-size:16px;color:#FF6B35"></div>
+          <div id="todo-date-sub" style="font-size:10px;color:#555;margin-top:2px"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.35);border-radius:9px;padding:4px 5px">
+          <button onclick="dateOffset(-1)" style="background:none;border:none;color:#aaa;padding:3px 10px;cursor:pointer;font-size:14px">◀</button>
+          <button id="todo-today-btn" onclick="todoDate=todayStr();render()" style="padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;font-family:'Inter',sans-serif">Hoy</button>
+          <button onclick="dateOffset(1)" style="background:none;border:none;color:#aaa;padding:3px 10px;cursor:pointer;font-size:14px">▶</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:5px">
+        <span>Progreso del día</span>
+        <span id="todo-progress-count" style="color:#FF6B35;font-weight:700"></span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden">
+        <div id="todo-progress-bar" style="height:100%;background:linear-gradient(90deg,#FF6B35,#FFD700);transition:0.4s"></div>
+      </div>
+    </div>
+
+    <!-- New task form -->
+    <div class="card" style="border-color:rgba(255,107,53,0.12);margin-bottom:12px">
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Nueva Tarea</div>
+      <input id="todo-input" class="inp" placeholder="Describe tu misión..." onkeydown="if(event.key==='Enter'){todoText=this.value;addTodo()}" oninput="todoText=this.value" style="font-size:15px;padding:12px;margin-bottom:12px"/>
+      <!-- Area selector -->
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Área</div>
+      <div id="todo-area-selector" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px"></div>
+      <!-- Difficulty + add button -->
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div id="todo-dif-selector" style="display:flex;gap:5px"></div>
+        <button onclick="todoText=document.getElementById('todo-input').value;addTodo()" style="background:linear-gradient(135deg,#FF6B35,#FF8C42);border:none;color:#fff;padding:9px 22px;border-radius:10px;cursor:pointer;font-weight:800;font-size:14px;box-shadow:0 4px 14px rgba(255,107,53,0.3)">+ AÑADIR</button>
+      </div>
+    </div>
+
+    <!-- Area filter -->
+    <div id="todo-filter-bar" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px"></div>
+
+    <!-- Todo list -->
+    <div class="card">
+      <div id="todo-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: HISTORY ═══════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-history" class="hidden">
+    <div class="card" style="padding:13px 15px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <span style="font-size:22px">📖</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;color:#AB47BC">HISTORIAL</div>
+          <div id="hist-count" style="font-size:11px;color:#555;margin-top:2px"></div>
+        </div>
+      </div>
+      <div id="hist-type-filter" style="display:flex;gap:6px;margin-bottom:10px"></div>
+      <div id="hist-month-filter" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px"></div>
+    </div>
+    <div class="card">
+      <div id="hist-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+
+</div><!-- end app-container -->
+
+<!-- ═══════════════════════════ MODALS ════════════════════════════════════ -->
+<!-- Expense modal -->
+<div id="modal-expense" class="modal-overlay" style="display:none" onclick="closeModal()">
+  <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:400px;border:1px solid rgba(255,215,0,0.3);padding:22px">
+    <div id="modal-exp-group" style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:2px;margin-bottom:5px"></div>
+    <div id="modal-exp-cat" style="font-size:19px;color:#FFD700;font-weight:700;margin-bottom:20px"></div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:#777;margin-bottom:7px">Monto ($)</div>
+      <input id="modal-exp-amt" class="inp" type="number" min="0" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter')submitExpense()" style="font-size:26px;padding:13px"/>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;color:#777;margin-bottom:7px">Nota (opcional)</div>
+      <input id="modal-exp-note" class="inp" placeholder="Descripción del gasto..." onkeydown="if(event.key==='Enter')submitExpense()"/>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal()" style="flex:1;padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="submitExpense()" style="flex:2;padding:13px;border-radius:12px;border:none;background:#FFD700;color:#000;cursor:pointer;font-weight:800;font-size:15px">Guardar Gasto</button>
+    </div>
+  </div>
+</div>
+
+<!-- Income modal -->
+<div id="modal-income" class="modal-overlay" style="display:none" onclick="closeModal()">
+  <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:400px;border:1px solid rgba(46,204,113,0.35);padding:22px">
+    <div style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:2px;margin-bottom:5px">Registrar Ingreso</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <span id="modal-inc-icon" style="font-size:24px"></span>
+      <span id="modal-inc-name" style="font-size:19px;color:#2ECC71;font-weight:700"></span>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:#777;margin-bottom:7px">Monto ($)</div>
+      <input id="modal-inc-amt" class="inp" type="number" min="0" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter')submitIncome()" style="font-size:26px;padding:13px"/>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;color:#777;margin-bottom:7px">Nota (opcional)</div>
+      <input id="modal-inc-note" class="inp" placeholder="Ej: Quincena, proyecto X, comisión..." onkeydown="if(event.key==='Enter')submitIncome()"/>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal()" style="flex:1;padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="submitIncome()" style="flex:2;padding:13px;border-radius:12px;border:none;background:#2ECC71;color:#000;cursor:pointer;font-weight:800;font-size:15px">Guardar Ingreso</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ NAV BAR ═══════════════════════════════════ -->
+<div class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button id="nav-dashboard" class="nb on" onclick="setView('dashboard')"><span class="nb-icon" style="font-size:18px">🗺️</span><span>Inicio</span></button>
+    <button id="nav-income" class="nb" onclick="setView('income')"><span class="nb-icon" style="font-size:18px">💰</span><span>Ingresos</span></button>
+    <button id="nav-expenses" class="nb" onclick="setView('expenses')"><span class="nb-icon" style="font-size:18px">🛡️</span><span>Gastos</span></button>
+    <button id="nav-accounts" class="nb" onclick="setView('accounts')"><span class="nb-icon" style="font-size:18px">🏦</span><span>Cofres</span></button>
+    <button id="nav-todos" class="nb" onclick="setView('todos')"><span class="nb-icon" style="font-size:18px">📋</span><span>Tareas</span></button>
+    <button id="nav-history" class="nb" onclick="setView('history')"><span class="nb-icon" style="font-size:18px">📖</span><span>Historial</span></button>
+  </div>
+</div>
+
+</div><!-- end #app -->
+
+<script src="constants.js"></script>
+<script src="avatar.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
