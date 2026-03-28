@@ -142,7 +142,12 @@ async function cloudLoad() {
 function ensureData(d) {
   if(!d) return mkInit();
   if(!d.months) d.months={};
-  MS.forEach(m=>{ if(!d.months[m]) d.months[m]={income:{},expenses:{},accounts:{}}; });
+  MS.forEach(m=>{ 
+    if(!d.months[m]) d.months[m]={};
+    if(!d.months[m].income) d.months[m].income={};
+    if(!d.months[m].expenses) d.months[m].expenses={};
+    if(!d.months[m].accounts) d.months[m].accounts={};
+  });
   if(!d.stats) d.stats={str:0,int:0,vit:0,luk:0,cha:0};
   if(!d.avatar) d.avatar={hair:"messy",hairColor:"brown",skin:"medium",eyeColor:"brown",outfit:"tshirt",outfitColor:"blue",accessory:"none"};
   if(!d.todos) d.todos=[];
@@ -372,7 +377,8 @@ function checkQuests(){
 function saveInc(id,amt,note){
   const cat=IC.find(x=>x.id===id);
   const entry={id:Date.now().toString(),date:new Date().toISOString(),month,type:"income",catId:id,catName:cat?.name||id,icon:cat?.icon||"💰",amount:amt,note};
-  const prevInc=data.months[month]?.income?.[id]||0;
+  if(!data.months[month].income) data.months[month].income = {};
+  const prevInc=data.months[month].income[id]||0;
   data.months[month].income[id]=prevInc+amt;
   data.hist=[entry,...(data.hist||[])].slice(0,500);
   closeModal();
@@ -388,6 +394,7 @@ function saveExp(gid,cid,amt,note){
   let gn="",cn="",gi="📦";
   for(let i=0;i<EG.length;i++){if(EG[i].id===gid){gn=EG[i].name;gi=EG[i].icon;for(let j=0;j<EG[i].cats.length;j++){if(EG[i].cats[j].id===cid)cn=EG[i].cats[j].name;}}}
   const entry={id:Date.now().toString(),date:new Date().toISOString(),month,group:gid,cat:cid,amount:amt,note,groupName:gn,catName:cn,icon:gi};
+  if(!data.months[month].expenses) data.months[month].expenses={};
   if(!data.months[month].expenses[gid]) data.months[month].expenses[gid]={};
   data.months[month].expenses[gid][cid]=(data.months[month].expenses[gid][cid]||0)+amt;
   data.hist=[entry,...(data.hist||[])].slice(0,500);
