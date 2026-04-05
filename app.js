@@ -58,6 +58,7 @@ let recurCat = "arr";
 let recurDay = 1;
 let journalMood = "good";
 let notifEnabled = false;
+let showJournalHist = false;
 
 // ── Utils ────────────────────────────────────────────────────────────────────
 function fmt(n) { return "$" + (n || 0).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -1769,13 +1770,42 @@ function renderJournalCard(){
     const sel=journalMood===m.id||(entry?.mood===m.id&&journalMood==="good");
     moodHTML+=`<button onclick="journalMood='${m.id}';render()" style="font-size:20px;padding:4px 6px;border-radius:8px;border:2px solid ${sel?m.c+"88":"transparent"};background:${sel?m.c+"18":"transparent"};cursor:pointer;transition:0.2s" title="${m.label}">${m.icon}</button>`;
   });
+  // Journal history entries
+  const entries=Object.entries(data.journal||{}).sort((a,b)=>b[0].localeCompare(a[0]));
+  const histCount=entries.length;
+  let histHTML="";
+  if(showJournalHist && histCount>0){
+    histHTML=`<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.06);padding-top:12px">
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📖 Historial de Diario (${histCount})</div>`;
+    entries.forEach(([dateKey, e])=>{
+      const d=new Date(dateKey+"T12:00:00");
+      const moodObj=JOURNAL_MOODS.find(m=>m.id===e.mood)||JOURNAL_MOODS[2];
+      const isToday=dateKey===today;
+      const dateLabel=isToday?"Hoy":d.toLocaleDateString("es-EC",{weekday:"short",day:"numeric",month:"short"});
+      histHTML+=`<div style="display:flex;gap:10px;padding:10px;background:${isToday?'rgba(255,215,0,0.04)':'rgba(0,0,0,0.15)'};border-radius:10px;border:1px solid ${isToday?'rgba(255,215,0,0.12)':'rgba(255,255,255,0.04)'};margin-bottom:6px">
+        <div style="font-size:24px;flex-shrink:0;padding-top:2px">${moodObj.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:11px;font-weight:700;color:${moodObj.c}">${moodObj.label}</span>
+            <span style="font-size:10px;color:#444">${dateLabel}</span>
+          </div>
+          ${e.text?`<div style="font-size:12px;color:#aaa;line-height:1.4">${e.text}</div>`:"<div style='font-size:11px;color:#333;font-style:italic'>Sin nota</div>"}
+        </div>
+      </div>`;
+    });
+    histHTML+=`</div>`;
+  }
   el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <span style="font-size:13px;font-weight:700;color:#FFD700">📝 Diario de Hoy</span>
     ${entry?`<span style="font-size:10px;color:#2ECC71">✓ Guardado</span>`:""}
   </div>
   <div style="display:flex;gap:4px;margin-bottom:10px">${moodHTML}</div>
   <textarea id="journal-input" class="inp" placeholder="¿Cómo fue tu día? Reflexiona..." style="min-height:60px;resize:vertical;font-size:13px;padding:10px;margin-bottom:8px">${entry?.text||""}</textarea>
-  <button onclick="saveJournal()" style="width:100%;padding:9px;border-radius:9px;border:none;background:linear-gradient(135deg,#FFD700,#FFA726);color:#000;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">${entry?"✏️ Actualizar":"📝 Guardar"}</button>`;
+  <div style="display:flex;gap:8px">
+    <button onclick="saveJournal()" style="flex:1;padding:9px;border-radius:9px;border:none;background:linear-gradient(135deg,#FFD700,#FFA726);color:#000;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">${entry?"✏️ Actualizar":"📝 Guardar"}</button>
+    ${histCount>0?`<button onclick="showJournalHist=!showJournalHist;render()" style="padding:9px 14px;border-radius:9px;border:1px solid rgba(255,215,0,0.25);background:${showJournalHist?'rgba(255,215,0,0.1)':'transparent'};color:#FFD700;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">📖 ${histCount}</button>`:""}
+  </div>
+  ${histHTML}`;
 }
 
 function renderRecurring(){
