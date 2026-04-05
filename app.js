@@ -32,6 +32,7 @@ let pendingStarts = {};
 let toastTimeout = null;
 let moodTimeout = null;
 let fMood = null;
+let todoViewMode = "day"; // "day" or "general"
 let saveTimeout = null;
 let shopText = "";
 let shopCat = "frutas";
@@ -303,6 +304,27 @@ function calcM(d,m){
   return {inc,exp,bal:inc-exp,accs};
 }
 
+// ── Get starting amounts for a given month ──────────────────────────────────
+// For the first month with data or if no previous month has accounts, use data.sa.
+// Otherwise, use the account values from the previous month as starting balances.
+function getStartAmounts(d, m) {
+  const mi = MS.indexOf(m);
+  if(mi <= 0) {
+    // January or unknown month: use global initial balances
+    return Object.assign({}, d.sa || {});
+  }
+  // Check if previous month has account data
+  const prevMonth = MS[mi - 1];
+  const prevAccounts = d.months[prevMonth]?.accounts || {};
+  const hasData = Object.values(prevAccounts).some(v => v > 0);
+  if(hasData) {
+    // Use previous month's final account values as starting balances
+    return Object.assign({}, prevAccounts);
+  }
+  // No data in previous month: recurse back further
+  return getStartAmounts(d, prevMonth);
+}
+
 function getStatLv(xp){return Math.floor((xp||0)/20)+1}
 function getStatPct(xp){const lv=getStatLv(xp);return(((xp||0)-(lv-1)*20)/20)*100}
 
@@ -407,6 +429,38 @@ function saveExp(gid,cid,amt,note){
 }
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
+function updateAccPending(id, value){
+  pendingAccs[id] = value;
+  // Update only the save button state without re-rendering entire DOM
+  const btn = document.querySelector(`[data-acc-save="${id}"]`);
+  if(btn) {
+    btn.disabled = false;
+    btn.style.background = '#1ABC9C';
+    btn.style.color = '#fff';
+    btn.style.cursor = 'pointer';
+  }
+  // Update input border
+  const inp = document.querySelector(`[data-acc-input="${id}"]`);
+  if(inp) inp.style.borderColor = 'rgba(255,215,0,0.35)';
+}
+function updateStartPending(id, value){
+  pendingStarts[id] = value;
+  // Show save button without re-rendering
+  const container = document.querySelector(`[data-start-container="${id}"]`);
+  if(container) {
+    let btn = container.querySelector('.start-save-btn');
+    if(!btn) {
+      btn = document.createElement('button');
+      btn.className = 'start-save-btn';
+      btn.onclick = () => confirmStart(id);
+      btn.style.cssText = 'margin-top:6px;width:100%;padding:6px;border-radius:7px;border:none;background:rgba(255,215,0,0.15);color:#FFD700;cursor:pointer;font-weight:700;font-size:11px';
+      btn.textContent = '✓ Guardar';
+      container.appendChild(btn);
+    }
+  }
+  const inp = document.querySelector(`[data-start-input="${id}"]`);
+  if(inp) inp.style.borderColor = 'rgba(255,215,0,0.3)';
+}
 function confirmAcc(id){
   const v=pendingAccs[id];
   if(v===undefined) return;
@@ -601,7 +655,8 @@ function render(){
   const xpCur=(data.xp||0)-(level-1)*10;
   let rank=RK[0];
   for(let ri=RK.length-1;ri>=0;ri--){if(level>=RK[ri].m){rank=RK[ri];break;}}
-  const startT=Object.values(data.sa||{}).reduce((a,b)=>a+b,0);
+  const monthStarts = getStartAmounts(data, month);
+  const startT=Object.values(monthStarts).reduce((a,b)=>a+b,0);
   const autoMood=getAutoMood();
   const fmtSaved=lastSaved?lastSaved.toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}):null;
   const isToday=todoDate===todayStr();
@@ -678,7 +733,7 @@ function render(){
   if(view==="dashboard"){ renderDashboard(ct,rank); renderReminders(); }
   if(view==="income") renderIncome(ct);
   if(view==="expenses") renderExpenses(ct);
-  if(view==="accounts") renderAccounts(ct,startT);
+  if(view==="accounts") renderAccounts(ct,startT,monthStarts);
   if(view==="todos") renderTodos(allTodosDay,filteredTodos,doneTodayCount,isToday,dateDisplay);
   if(view==="shopping") renderShopping();
   if(view==="history") renderHistory();
@@ -829,7 +884,7 @@ function renderExpenses(ct){
 function toggleExpGroup(id){expGr=expGr===id?null:id;render();}
 
 // ── Accounts view ────────────────────────────────────────────────────────────
-function renderAccounts(ct,startT){
+function renderAccounts(ct,startT,monthStarts){
   // Cuadre
   const esperado=startT+ct.inc-ct.exp;
   const diferencia=ct.accs-esperado;
@@ -837,6 +892,11 @@ function renderAccounts(ct,startT){
   const difColor=difOk?"#2ECC71":diferencia>0?"#F1C40F":"#E74C3C";
   const difLabel=difOk?"✅ Todo cuadra perfectamente":diferencia>0?`+${fS(diferencia)} sin contabilizar (ingreso o saldo extra)`:`${fS(diferencia)} de diferencia (posibles gastos sin registrar)`;
   $("acc-cuadre-month").textContent="📊 Cuadre del Mes — "+month;
+
+  // Check if start amounts come from previous month's accounts
+  const mi = MS.indexOf(month);
+  const fromPrevMonth = mi > 0 && Object.values(data.months[MS[mi-1]]?.accounts||{}).some(v=>v>0);
+  const startLabel = fromPrevMonth ? `Saldo heredado de ${MS[mi-1]}` : "Saldo inicial (configurado)";
 
   // Formula rows
   $("acc-start-val").textContent=fS(startT);
@@ -853,7 +913,7 @@ function renderAccounts(ct,startT){
   let html="";
   AC.forEach(a=>{
     const savedVal=data.months[month]?.accounts?.[a.id]||0;
-    const initVal=data.sa?.[a.id]||0;
+    const initVal=monthStarts[a.id]||0;
     const inputVal=pendingAccs[a.id]!==undefined?pendingAccs[a.id]:(savedVal||"");
     const hasPending=pendingAccs[a.id]!==undefined;
     const delta=savedVal-initVal;
@@ -865,17 +925,17 @@ function renderAccounts(ct,startT){
         <div style="width:34px;height:34px;border-radius:9px;background:${a.c}18;border:1px solid ${a.c}30;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${a.icon}</div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:700;color:#ddd">${a.name}</div>
-          <div style="font-size:11px;color:#555;margin-top:1px">Inicio del mes: <span style="color:#888;font-weight:600">${fS(initVal)}</span></div>
+          <div style="font-size:11px;color:#555;margin-top:1px">${fromPrevMonth?'Heredado':'Inicio del mes'}: <span style="color:#888;font-weight:600">${fS(initVal)}</span></div>
         </div>
         <div style="text-align:right"><div style="font-size:11px;color:${deltaColor};font-weight:700">${deltaLabel}</div></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="flex:1">
           <div style="font-size:11px;color:#555;margin-bottom:5px;font-weight:600">Saldo actual</div>
-          <input class="inp" type="number" min="0" step="0.01" placeholder="0.00" value="${inputVal}" oninput="pendingAccs['${a.id}']=this.value;render()" onkeydown="if(event.key==='Enter')confirmAcc('${a.id}')" style="font-size:16px;padding:10px 12px;border-color:${hasPending?"rgba(255,215,0,0.35)":"rgba(255,255,255,0.09)"}"/>
+          <input class="inp" data-acc-input="${a.id}" type="number" min="0" step="0.01" placeholder="0.00" value="${inputVal}" oninput="updateAccPending('${a.id}',this.value)" onkeydown="if(event.key==='Enter')confirmAcc('${a.id}')" style="font-size:16px;padding:10px 12px;border-color:${hasPending?"rgba(255,215,0,0.35)":"rgba(255,255,255,0.09)"}"/>
         </div>
         <div style="padding-top:19px">
-          <button onclick="confirmAcc('${a.id}')" ${!hasPending?"disabled":""} style="padding:10px 14px;border-radius:10px;border:none;background:${hasPending?"#1ABC9C":"rgba(255,255,255,0.05)"};color:${hasPending?"#fff":"#444"};cursor:${hasPending?"pointer":"default"};font-weight:700;font-size:13px;white-space:nowrap;transition:0.2s">✓ Guardar</button>
+          <button data-acc-save="${a.id}" onclick="confirmAcc('${a.id}')" ${!hasPending?"disabled":""} style="padding:10px 14px;border-radius:10px;border:none;background:${hasPending?"#1ABC9C":"rgba(255,255,255,0.05)"};color:${hasPending?"#fff":"#444"};cursor:${hasPending?"pointer":"default"};font-weight:700;font-size:13px;white-space:nowrap;transition:0.2s">✓ Guardar</button>
         </div>
       </div>
     </div>`;
@@ -891,10 +951,10 @@ function renderAccounts(ct,startT){
     AC.forEach(a=>{
       const startInput=pendingStarts[a.id]!==undefined?pendingStarts[a.id]:(data.sa?.[a.id]||"");
       const hasStartPending=pendingStarts[a.id]!==undefined;
-      initHTML+=`<div style="padding:10px;background:rgba(0,0,0,0.25);border-radius:10px;border:1px solid ${hasStartPending?"rgba(255,215,0,0.3)":"rgba(255,255,255,0.05)"}">
+      initHTML+=`<div data-start-container="${a.id}" style="padding:10px;background:rgba(0,0,0,0.25);border-radius:10px;border:1px solid ${hasStartPending?"rgba(255,215,0,0.3)":"rgba(255,255,255,0.05)"}">
         <div style="font-size:11px;color:#666;margin-bottom:6px;font-weight:600">${a.icon} ${a.name}</div>
-        <input class="inp" type="number" min="0" step="0.01" placeholder="0.00" value="${startInput}" oninput="pendingStarts['${a.id}']=this.value;render()" onkeydown="if(event.key==='Enter')confirmStart('${a.id}')" style="font-size:14px;padding:7px 9px;border-color:${hasStartPending?"rgba(255,215,0,0.3)":"rgba(255,255,255,0.09)"}"/>
-        ${hasStartPending?`<button onclick="confirmStart('${a.id}')" style="margin-top:6px;width:100%;padding:6px;border-radius:7px;border:none;background:rgba(255,215,0,0.15);color:#FFD700;cursor:pointer;font-weight:700;font-size:11px">✓ Guardar</button>`:""}
+        <input class="inp" data-start-input="${a.id}" type="number" min="0" step="0.01" placeholder="0.00" value="${startInput}" oninput="updateStartPending('${a.id}',this.value)" onkeydown="if(event.key==='Enter')confirmStart('${a.id}')" style="font-size:14px;padding:7px 9px;border-color:${hasStartPending?"rgba(255,215,0,0.3)":"rgba(255,255,255,0.09)"}"/>
+        ${hasStartPending?`<button class="start-save-btn" onclick="confirmStart('${a.id}')" style="margin-top:6px;width:100%;padding:6px;border-radius:7px;border:none;background:rgba(255,215,0,0.15);color:#FFD700;cursor:pointer;font-weight:700;font-size:11px">✓ Guardar</button>`:""}
       </div>`;
     });
     $("acc-init-grid").innerHTML=initHTML;
@@ -903,7 +963,25 @@ function renderAccounts(ct,startT){
 function toggleInitEdit(){showInitEdit=!showInitEdit;render();}
 
 // ── Todos view ───────────────────────────────────────────────────────────────
+function setTodoViewMode(mode){ todoViewMode=mode; render(); }
+
 function renderTodos(allTodosDay,filteredTodos,doneTodayCount,isToday,dateDisplay){
+  // View mode toggle (Day vs General)
+  const viewModeEl = $("todo-view-mode");
+  if(viewModeEl) {
+    viewModeEl.innerHTML = `
+      <button onclick="setTodoViewMode('day')" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${todoViewMode==='day'?'rgba(255,107,53,0.4)':'rgba(255,255,255,0.07)'};background:${todoViewMode==='day'?'rgba(255,107,53,0.12)':'transparent'};color:${todoViewMode==='day'?'#FF6B35':'#555'};cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">📅 Por Día</button>
+      <button onclick="setTodoViewMode('general')" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${todoViewMode==='general'?'rgba(171,71,188,0.4)':'rgba(255,255,255,0.07)'};background:${todoViewMode==='general'?'rgba(171,71,188,0.12)':'transparent'};color:${todoViewMode==='general'?'#AB47BC':'#555'};cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">📋 General</button>
+    `;
+  }
+
+  if(todoViewMode === 'general') {
+    renderTodosGeneral();
+    return;
+  }
+
+  // Day view (existing)
+  $("todo-day-nav").classList.remove("hidden");
   $("todo-date-display").textContent=dateDisplay;
   $("todo-date-sub").textContent=isToday?"":todoDate;
   $("todo-date-sub").style.display=isToday?"none":"";
@@ -959,6 +1037,77 @@ function renderTodos(allTodosDay,filteredTodos,doneTodayCount,isToday,dateDispla
       <button onclick="deleteTodo('${todo.id}')" style="background:transparent;border:none;color:#3a3a4a;cursor:pointer;font-size:15px;padding:5px;flex-shrink:0">🗑️</button>
     </div>`;
   });
+  $("todo-list").innerHTML=listHTML;
+}
+
+// ── General (all pending) view ───────────────────────────────────────────────
+function renderTodosGeneral(){
+  $("todo-day-nav").classList.add("hidden");
+
+  // Gather all pending tasks, sorted by date
+  const allPending = (data.todos||[]).filter(x=>!x.done).sort((a,b)=>a.date.localeCompare(b.date));
+  const allDone = (data.todos||[]).filter(x=>x.done).length;
+  const totalAll = (data.todos||[]).length;
+
+  $("todo-progress-count").textContent=`${allDone} / ${totalAll}`;
+  $("todo-progress-bar").style.width=(totalAll?(allDone/totalAll)*100:0)+"%";
+
+  // Hide area/difficulty selectors for general view, show only filter
+  $("todo-area-selector").innerHTML="";
+  $("todo-dif-selector").innerHTML="";
+
+  // Area filter for general view
+  const filteredPending = areaFilter==="all"?allPending:allPending.filter(x=>x.area===areaFilter);
+  let filterHTML=`<button onclick="areaFilter='all';render()" class="tab ${areaFilter==="all"?"on":""}" style="color:${areaFilter==="all"?"#eee":"#555"};border-color:${areaFilter==="all"?"rgba(255,255,255,0.25)":"rgba(255,255,255,0.07)"};background:${areaFilter==="all"?"rgba(255,255,255,0.09)":"rgba(0,0,0,0.25)"}">📋 Todas <span style="font-size:10px;color:#666">(${allPending.length})</span></button>`;
+  AREAS.forEach(a=>{
+    const ac=allPending.filter(x=>x.area===a.id).length;
+    const on=areaFilter===a.id;
+    if(ac>0) filterHTML+=`<button onclick="areaFilter='${a.id}';render()" class="tab ${on?"on":""}" style="color:${on?a.c:"#555"};border-color:${on?a.c:"rgba(255,255,255,0.07)"};background:${on?a.c+"18":"rgba(0,0,0,0.25)"}">${a.icon} ${a.n} <span style="font-size:10px;color:${on?a.c:"#555"}">(${ac})</span></button>`;
+  });
+  $("todo-filter-bar").innerHTML=filterHTML;
+
+  // Group by date
+  const groups = {};
+  filteredPending.forEach(t=>{
+    if(!groups[t.date]) groups[t.date]=[];
+    groups[t.date].push(t);
+  });
+
+  let listHTML="";
+  if(filteredPending.length===0){
+    listHTML=`<div style="text-align:center;padding:30px;color:#444"><div style="font-size:32px;margin-bottom:12px">🎉</div><div style="font-size:14px;font-weight:600;color:#2ECC71">¡Sin tareas pendientes!</div><div style="font-size:12px;color:#555;margin-top:4px">Todas las misiones han sido completadas.</div></div>`;
+  } else {
+    const today = todayStr();
+    Object.keys(groups).sort().forEach(dateKey=>{
+      const tasks = groups[dateKey];
+      const d = new Date(dateKey+"T12:00:00");
+      const isToday = dateKey === today;
+      const isPast = dateKey < today;
+      const dateLabel = isToday ? "📅 Hoy" : d.toLocaleDateString("es-EC",{weekday:"long",day:"numeric",month:"long"});
+      const dateColor = isToday ? "#FF6B35" : isPast ? "#E74C3C" : "#888";
+      const dateBadge = isPast && !isToday ? " ⚠️ Atrasada" : "";
+
+      listHTML+=`<div style="margin-bottom:6px">
+        <div style="font-size:11px;font-weight:700;color:${dateColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:4px 8px;background:${dateColor}0e;border-radius:6px;border-left:3px solid ${dateColor};display:inline-block">${dateLabel}${dateBadge} <span style="font-size:10px;color:#555;font-weight:400">(${tasks.length})</span></div>
+      </div>`;
+
+      tasks.forEach(todo=>{
+        const df=TD.find(x=>x.id===todo.diff)||TD[0];
+        const ar=AREAS.find(x=>x.id===todo.area)||AREAS[0];
+        listHTML+=`<div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:rgba(0,0,0,0.2);border-radius:12px;border:1px solid ${isPast&&!isToday?'rgba(231,76,60,0.15)':'rgba(255,255,255,0.05)'};transition:0.2s;margin-bottom:6px">
+          <div onclick="toggleTodo('${todo.id}')" style="width:25px;height:25px;border-radius:7px;border:2px solid ${ar.c}88;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#2ECC71;flex-shrink:0;transition:0.2s"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:#eee;font-weight:500;margin-bottom:5px;line-height:1.3">${todo.text}</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              <span class="pill" style="color:${ar.c};border-color:${ar.c}28;background:${ar.c}12">${ar.icon} ${ar.n}</span>
+              <span class="pill" style="color:${df.c};border-color:${df.c}28;background:${df.c}12">${df.i} +${todo.xp}XP</span>
+            </div>
+          </div>
+          <button onclick="deleteTodo('${todo.id}')" style="background:transparent;border:none;color:#3a3a4a;cursor:pointer;font-size:15px;padding:5px;flex-shrink:0">🗑️</button>
+        </div>`;
+      });
+    });
+  }
   $("todo-list").innerHTML=listHTML;
 }
 
