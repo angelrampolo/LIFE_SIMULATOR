@@ -3,14 +3,21 @@
 
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
+:root{
+  --bg:#070b13;
+  --card-bg:#0e121e;
+  --accent:#FFD700;
+  --glow:rgba(255,215,0,0.08);
+}
 body{
   min-height:100vh;
   min-height:100dvh;
-  background:#070b13;
+  background:var(--bg);
   font-family:'Inter',sans-serif;
   color:#e0e0e0;
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
+  transition:background 0.3s;
 }
 
 /* ── Animaciones ──────────────────────────────────────────────────────────── */

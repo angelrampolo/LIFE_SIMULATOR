@@ -124,3 +124,49 @@ const NAV = [
   {id:"shopping", icon:"🛒",label:"Compras"},
   {id:"history",  icon:"📖",label:"Historial"},
 ];
+
+// ── Temas de Color ───────────────────────────────────────────────────────────
+const THEMES = [
+  {id:"cyber",name:"Cyber Oscuro",bg:"#070b13",card:"#0e121e",accent:"#FFD700",glow:"rgba(255,215,0,0.08)"},
+  {id:"forest",name:"Bosque",bg:"#060f0a",card:"#0e1e14",accent:"#66BB6A",glow:"rgba(102,187,106,0.08)"},
+  {id:"ocean",name:"Océano",bg:"#060b14",card:"#0e1522",accent:"#29B6F6",glow:"rgba(41,182,246,0.08)"},
+  {id:"volcano",name:"Volcán",bg:"#120808",card:"#1e1010",accent:"#FF6B35",glow:"rgba(255,107,53,0.08)"},
+  {id:"royal",name:"Royal",bg:"#0b0814",card:"#14102a",accent:"#AB47BC",glow:"rgba(171,71,188,0.08)"},
+];
+
+// ── Moods del Diario ─────────────────────────────────────────────────────────
+const JOURNAL_MOODS = [
+  {id:"great",icon:"😄",label:"Genial",c:"#2ECC71"},
+  {id:"good",icon:"🙂",label:"Bien",c:"#3498DB"},
+  {id:"neutral",icon:"😐",label:"Normal",c:"#F1C40F"},
+  {id:"bad",icon:"😔",label:"Mal",c:"#E67E22"},
+  {id:"terrible",icon:"😩",label:"Terrible",c:"#E74C3C"},
+];
+
+// ── Logros ───────────────────────────────────────────────────────────────────
+const ACHV = [
+  {id:"first_inc",name:"Primer Botín",desc:"Registra tu primer ingreso",icon:"💰",xp:5,
+    ck:d=>(d.hist||[]).some(h=>h.type==="income")},
+  {id:"first_exp",name:"Primer Gasto",desc:"Registra tu primer gasto",icon:"🛡️",xp:5,
+    ck:d=>(d.hist||[]).some(h=>!h.type||h.type==="expense")},
+  {id:"saver_20",name:"Ahorrador 20%",desc:"Ahorra 20% en un mes",icon:"🐷",xp:20,
+    ck:d=>{for(const m of MS){const md=d.months[m]||{};const i=Object.values(md.income||{}).reduce((a,b)=>a+b,0);let e=0;Object.values(md.expenses||{}).forEach(g=>Object.values(g).forEach(v=>e+=v));if(i>0&&(i-e)/i>=0.2)return true;}return false;}},
+  {id:"streak_7",name:"Racha de Fuego",desc:"7 días seguidos de un hábito",icon:"🔥",xp:15,
+    ck:d=>(d.habits||[]).some(h=>h.streak>=7)},
+  {id:"streak_30",name:"Imparable",desc:"30 días de racha en un hábito",icon:"⚡",xp:30,
+    ck:d=>(d.habits||[]).some(h=>h.streak>=30)},
+  {id:"tasks_10",name:"Guerrero",desc:"Completa 10 tareas",icon:"⚔️",xp:10,
+    ck:d=>(d.todos||[]).filter(t=>t.done).length>=10},
+  {id:"tasks_50",name:"Héroe Épico",desc:"Completa 50 tareas",icon:"🏆",xp:25,
+    ck:d=>(d.todos||[]).filter(t=>t.done).length>=50},
+  {id:"goal_done",name:"Meta Cumplida",desc:"Alcanza una meta financiera",icon:"🎯",xp:20,
+    ck:d=>(d.goals||[]).some(g=>g.done)},
+  {id:"cofres_all",name:"Tesorero",desc:"Actualiza todos los cofres en un mes",icon:"🗝️",xp:15,
+    ck:d=>{for(const m of MS){const accs=d.months[m]?.accounts||{};if(AC.every(a=>accs[a.id]>0))return true;}return false;}},
+  {id:"level_10",name:"Nivel 10",desc:"Alcanza nivel 10",icon:"⭐",xp:20,
+    ck:d=>Math.floor((d.xp||0)/10)+1>=10},
+  {id:"journal_7",name:"Escritor",desc:"Escribe en el diario 7 días",icon:"📝",xp:10,
+    ck:d=>Object.keys(d.journal||{}).length>=7},
+  {id:"habits_3",name:"Disciplinado",desc:"Crea 3 hábitos",icon:"📅",xp:10,
+    ck:d=>(d.habits||[]).length>=3},
+];
