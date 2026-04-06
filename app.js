@@ -59,6 +59,12 @@ let recurDay = 1;
 let journalMood = "good";
 let notifEnabled = false;
 let showJournalHist = false;
+let showDebtForm = false;
+let showWishForm = false;
+let showSubsForm = false;
+let showFocusForm = false;
+let showComparador = false;
+let compareMo2 = "";
 
 // ── Utils ────────────────────────────────────────────────────────────────────
 function fmt(n) { return "$" + (n || 0).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -156,7 +162,7 @@ async function cloudLoad() {
   }
 }
 
-// Ensure all required data structures exist (Firebase deletes empty objects)
+// Ensure all required data structures exist (Firebase deletes empty objects/arrays and converts arrays to objects)
 function ensureData(d) {
   if (!d) return mkInit();
   if (!d.months) d.months = {};
@@ -168,19 +174,54 @@ function ensureData(d) {
   });
   if (!d.stats) d.stats = { str: 0, int: 0, vit: 0, luk: 0, cha: 0 };
   if (!d.avatar) d.avatar = { hair: "messy", hairColor: "brown", skin: "medium", eyeColor: "brown", outfit: "tshirt", outfitColor: "blue", accessory: "none" };
-  if (!d.todos) d.todos = [];
-  if (!d.hist) d.hist = [];
-  if (!d.shopList) d.shopList = [];
-  if (!d.reminders) d.reminders = [];
+  if (d.xp === undefined) d.xp = 0;
   if (!d.cq) d.cq = {};
   if (!d.sa) d.sa = {};
-  if (d.xp === undefined) d.xp = 0;
-  if (!d.habits) d.habits = [];
-  if (!d.goals) d.goals = [];
-  if (!d.recurring) d.recurring = [];
   if (!d.journal) d.journal = {};
   if (!d.achievements) d.achievements = {};
   if (!d.theme) d.theme = "cyber";
+  // Firebase converts arrays to objects with numeric keys — fix them all
+  const fixArr = (key) => {
+    if (!d[key]) { d[key] = []; return; }
+    if (Array.isArray(d[key])) return;
+    // It's an object from Firebase — convert to array
+    if (typeof d[key] === 'object') {
+      const arr = [];
+      Object.keys(d[key]).forEach(k => {
+        if (d[key][k] && typeof d[key][k] === 'object') {
+          arr.push(d[key][k]);
+        }
+      });
+      d[key] = arr;
+    } else {
+      d[key] = [];
+    }
+  };
+  fixArr('todos');
+  fixArr('hist');
+  fixArr('shopList');
+  fixArr('reminders');
+  fixArr('habits');
+  fixArr('goals');
+  fixArr('recurring');
+  fixArr('debts');
+  fixArr('wishlist');
+  fixArr('subs');
+  // Fix nested arrays inside habits (history per habit, payments per debt, etc.)
+  (d.habits || []).forEach(h => {
+    if (h.history && typeof h.history !== 'object') h.history = {};
+    if (!h.history) h.history = {};
+  });
+  (d.debts || []).forEach(db => {
+    if (!db.payments) db.payments = [];
+    if (!Array.isArray(db.payments)) {
+      const arr = [];
+      Object.keys(db.payments).forEach(k => { if (db.payments[k]) arr.push(db.payments[k]); });
+      db.payments = arr;
+    }
+  });
+  // focusChallenge can be null — Firebase may delete it, which is fine
+  if (d.focusChallenge === undefined) d.focusChallenge = null;
   return d;
 }
 
@@ -753,13 +794,13 @@ function render() {
   $("view-history").classList.toggle("hidden", view !== "history");
 
   // ── Dashboard ──
-  if (view === "dashboard") { renderDashboard(ct, rank); renderReminders(); renderWeeklySummary(); renderTrendChart(); renderHabitsPreview(); renderJournalCard(); }
+  if (view === "dashboard") { renderDashboard(ct, rank); renderReminders(); renderWeeklySummary(); renderTrendChart(); renderHabitsPreview(); renderJournalCard(); renderDailyQuote(); renderFocusChallenge(); }
   if (view === "income") renderIncome(ct);
-  if (view === "expenses") { renderExpenses(ct); renderRecurring(); }
-  if (view === "accounts") { renderAccounts(ct, startT, monthStarts); renderGoals(); }
+  if (view === "expenses") { renderExpenses(ct); renderRecurring(); renderSubs(); }
+  if (view === "accounts") { renderAccounts(ct, startT, monthStarts); renderGoals(); renderDebts(); }
   if (view === "todos") renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDisplay);
-  if (view === "shopping") renderShopping();
-  if (view === "history") renderHistory();
+  if (view === "shopping") { renderShopping(); renderWishlist(); }
+  if (view === "history") { renderHistory(); renderComparador(); }
   if (showSettings) renderSettingsExtras();
 
   // Apply theme
@@ -2051,7 +2092,463 @@ function renderSettingsExtras(){
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ── INIT ─────────────────────────────────────────────────────────────────────
+// ── 1. DEBTS & LOANS ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function addDebt(){
+  const nameEl=$("debt-name-input");const amtEl=$("debt-amt-input");
+  const name=(nameEl?nameEl.value:"").trim();const amount=parseFloat(amtEl?amtEl.value:0)||0;
+  if(!name||amount<=0) return;
+  const typeEl=document.querySelector('input[name="debt-type"]:checked');
+  const type=typeEl?typeEl.value:"owe_me";
+  data.debts.push({id:Date.now().toString(),name,amount,paid:0,type,date:todayStr(),payments:[]});
+  if(nameEl) nameEl.value="";if(amtEl) amtEl.value="";
+  showDebtForm=false;
+  flash(type==="owe_me"?"💸 Deuda registrada: te deben":"💸 Deuda registrada: debes","success");
+  schedSave();render();
+}
+function payDebt(id){
+  const d=data.debts.find(x=>x.id===id);if(!d) return;
+  const input=document.getElementById("debt-pay-"+id);
+  const val=parseFloat(input?input.value:0)||0;
+  if(val<=0) return;
+  d.paid+=val;
+  d.payments.push({amount:val,date:todayStr()});
+  if(input) input.value="";
+  if(d.paid>=d.amount){
+    flash(`✅ ¡Deuda con ${d.name} saldada!`,"xp");
+    data.xp=(data.xp||0)+5;
+  } else {
+    flash(`💰 Abono de ${fmt(val)} registrado`,"success");
+  }
+  schedSave();render();
+}
+function deleteDebt(id){
+  if(!confirm("¿Eliminar esta deuda?")) return;
+  data.debts=data.debts.filter(x=>x.id!==id);
+  schedSave();render();
+}
+
+function renderDebts(){
+  const el=$("acc-debts");if(!el) return;
+  const debts=data.debts||[];
+  const oweMe=debts.filter(d=>d.type==="owe_me"&&d.paid<d.amount);
+  const iOwe=debts.filter(d=>d.type==="i_owe"&&d.paid<d.amount);
+  const settled=debts.filter(d=>d.paid>=d.amount);
+  const totalOweMe=oweMe.reduce((a,d)=>a+(d.amount-d.paid),0);
+  const totalIOwe=iOwe.reduce((a,d)=>a+(d.amount-d.paid),0);
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="font-size:13px;font-weight:700;color:#3498DB">👥 Deudas & Préstamos</span>
+    <button onclick="showDebtForm=!showDebtForm;render()" style="background:${showDebtForm?"rgba(255,255,255,0.05)":"linear-gradient(135deg,#3498DB,#2980B9)"};border:${showDebtForm?"1px solid rgba(255,255,255,0.1)":"none"};color:${showDebtForm?"#888":"#fff"};padding:5px 10px;border-radius:7px;cursor:pointer;font-weight:700;font-size:10px;font-family:'Inter',sans-serif">${showDebtForm?"Cancelar":"+ Nueva"}</button>
+  </div>`;
+
+  if(totalOweMe>0||totalIOwe>0){
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="padding:8px;background:rgba(46,204,113,0.06);border-radius:8px;border:1px solid rgba(46,204,113,0.18);text-align:center">
+        <div style="font-size:9px;color:#555">ME DEBEN</div>
+        <div style="font-size:14px;font-weight:800;color:#2ECC71">${fS(totalOweMe)}</div>
+      </div>
+      <div style="padding:8px;background:rgba(231,76,60,0.06);border-radius:8px;border:1px solid rgba(231,76,60,0.18);text-align:center">
+        <div style="font-size:9px;color:#555">DEBO</div>
+        <div style="font-size:14px;font-weight:800;color:#E74C3C">${fS(totalIOwe)}</div>
+      </div>
+    </div>`;
+  }
+
+  if(showDebtForm){
+    html+=`<div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:12px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px;border-radius:8px;border:1px solid rgba(46,204,113,0.3);background:rgba(46,204,113,0.06);cursor:pointer;font-size:11px;color:#2ECC71;font-weight:700">
+          <input type="radio" name="debt-type" value="owe_me" checked style="accent-color:#2ECC71"/> Me deben
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px;border-radius:8px;border:1px solid rgba(231,76,60,0.3);background:rgba(231,76,60,0.06);cursor:pointer;font-size:11px;color:#E74C3C;font-weight:700">
+          <input type="radio" name="debt-type" value="i_owe" style="accent-color:#E74C3C"/> Yo debo
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="debt-name-input" class="inp" placeholder="Nombre de la persona..." style="flex:1;font-size:13px;padding:8px"/>
+        <input id="debt-amt-input" class="inp" type="number" placeholder="$" style="width:90px;font-size:13px;padding:8px"/>
+      </div>
+      <button onclick="addDebt()" style="width:100%;padding:8px;border-radius:8px;border:none;background:#3498DB;color:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">💸 Registrar</button>
+    </div>`;
+  }
+
+  const renderDebtItem=(d)=>{
+    const remaining=d.amount-d.paid;
+    const pct=Math.min(100,Math.round((d.paid/d.amount)*100));
+    const isOweMe=d.type==="owe_me";
+    const color=isOweMe?"#2ECC71":"#E74C3C";
+    return `<div style="padding:10px;background:rgba(0,0,0,0.15);border-radius:10px;border:1px solid rgba(255,255,255,0.05);margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">${isOweMe?"🟢":"🔴"}</span>
+          <div><div style="font-size:13px;font-weight:700;color:#ddd">${d.name}</div>
+          <div style="font-size:10px;color:#555">${isOweMe?"Te debe":"Le debes"} · ${new Date(d.date+"T12:00:00").toLocaleDateString("es-EC",{day:"numeric",month:"short"})}</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;color:${color}">${fS(remaining)}</div>
+          <div style="font-size:9px;color:#555">de ${fS(d.amount)}</div>
+        </div>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;width:${pct}%;background:${color};transition:0.4s"></div>
+      </div>
+      ${remaining>0?`<div style="display:flex;gap:6px;align-items:center">
+        <input id="debt-pay-${d.id}" class="inp" type="number" placeholder="Abono $" style="flex:1;font-size:12px;padding:6px"/>
+        <button onclick="payDebt('${d.id}')" style="padding:6px 12px;border-radius:7px;border:none;background:${color};color:#fff;cursor:pointer;font-weight:700;font-size:11px;font-family:'Inter',sans-serif">Abonar</button>
+        <button onclick="deleteDebt('${d.id}')" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+      </div>`:`<div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#2ECC71;font-weight:700">✅ Saldada</span>
+        <button onclick="deleteDebt('${d.id}')" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+      </div>`}
+      ${d.payments.length>0?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.04)">
+        ${d.payments.slice(-3).map(p=>`<div style="display:flex;justify-content:space-between;font-size:10px;color:#444;padding:2px 0"><span>${new Date(p.date+"T12:00:00").toLocaleDateString("es-EC",{day:"numeric",month:"short"})}</span><span style="color:${color}">${fS(p.amount)}</span></div>`).join("")}
+      </div>`:""}
+    </div>`;
+  };
+
+  if(oweMe.length>0){html+=`<div style="font-size:10px;color:#2ECC71;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">ME DEBEN (${oweMe.length})</div>`;oweMe.forEach(d=>{html+=renderDebtItem(d);});}
+  if(iOwe.length>0){html+=`<div style="font-size:10px;color:#E74C3C;font-weight:700;margin:8px 0 6px;text-transform:uppercase;letter-spacing:1px">YO DEBO (${iOwe.length})</div>`;iOwe.forEach(d=>{html+=renderDebtItem(d);});}
+  if(settled.length>0){html+=`<div style="font-size:10px;color:#555;font-weight:700;margin:8px 0 6px;text-transform:uppercase;letter-spacing:1px">✅ SALDADAS (${settled.length})</div>`;settled.slice(0,3).forEach(d=>{html+=renderDebtItem(d);});}
+  if(debts.length===0&&!showDebtForm) html+=`<div style="text-align:center;padding:15px;color:#333;font-size:12px">Sin deudas registradas 🎉</div>`;
+
+  el.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── 2. WISHLIST ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function addWishItem(){
+  const nameEl=$("wish-name");const priceEl=$("wish-price");
+  const name=(nameEl?nameEl.value:"").trim();const price=parseFloat(priceEl?priceEl.value:0)||0;
+  if(!name) return;
+  data.wishlist.push({id:Date.now().toString(),name,price,done:false,date:todayStr()});
+  if(nameEl) nameEl.value="";if(priceEl) priceEl.value="";
+  showWishForm=false;
+  flash("🎁 Agregado a la wishlist","success");
+  schedSave();render();
+}
+function toggleWishDone(id){
+  const w=data.wishlist.find(x=>x.id===id);if(!w) return;
+  w.done=!w.done;
+  if(w.done) flash("🎉 ¡Comprado!","success");
+  schedSave();render();
+}
+function deleteWish(id){data.wishlist=data.wishlist.filter(x=>x.id!==id);schedSave();render();}
+
+function renderWishlist(){
+  const el=$("shop-wishlist");if(!el) return;
+  const items=data.wishlist||[];
+  const pending=items.filter(w=>!w.done);
+  const bought=items.filter(w=>w.done);
+  const totalPending=pending.reduce((a,w)=>a+w.price,0);
+  // Calculate avg monthly savings
+  const ct=calcM(data,month);
+  const monthlySavings=ct.bal>0?ct.bal:0;
+  const monthsNeeded=monthlySavings>0?Math.ceil(totalPending/monthlySavings):0;
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="font-size:13px;font-weight:700;color:#9B59B6">🎁 Quiero Comprar</span>
+    <button onclick="showWishForm=!showWishForm;render()" style="background:${showWishForm?"rgba(255,255,255,0.05)":"linear-gradient(135deg,#9B59B6,#8E44AD)"};border:${showWishForm?"1px solid rgba(255,255,255,0.1)":"none"};color:${showWishForm?"#888":"#fff"};padding:5px 10px;border-radius:7px;cursor:pointer;font-weight:700;font-size:10px;font-family:'Inter',sans-serif">${showWishForm?"Cancelar":"+ Agregar"}</button>
+  </div>`;
+
+  if(showWishForm){
+    html+=`<div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:10px">
+      <input id="wish-name" class="inp" placeholder="¿Qué quieres comprar?" style="font-size:13px;padding:8px;margin-bottom:8px"/>
+      <div style="display:flex;gap:8px">
+        <input id="wish-price" class="inp" type="number" placeholder="Precio $" style="flex:1;font-size:13px;padding:8px"/>
+        <button onclick="addWishItem()" style="padding:8px 16px;border-radius:8px;border:none;background:#9B59B6;color:#fff;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">🎁 Agregar</button>
+      </div>
+    </div>`;
+  }
+
+  if(totalPending>0){
+    html+=`<div style="padding:8px 10px;background:rgba(155,89,182,0.06);border-radius:8px;border:1px solid rgba(155,89,182,0.18);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:10px;color:#555">TOTAL PENDIENTE</div><div style="font-size:14px;font-weight:800;color:#9B59B6">${fS(totalPending)}</div></div>
+      ${monthsNeeded>0?`<div style="text-align:right"><div style="font-size:10px;color:#555">AHORRANDO ASÍ</div><div style="font-size:12px;font-weight:700;color:#F1C40F">~${monthsNeeded} mes${monthsNeeded>1?"es":""}</div></div>`:""}
+    </div>`;
+  }
+
+  pending.forEach(w=>{
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(0,0,0,0.12);border-radius:9px;margin-bottom:4px;border:1px solid rgba(255,255,255,0.04)">
+      <button onclick="toggleWishDone('${w.id}')" style="width:22px;height:22px;border-radius:6px;border:2px solid rgba(155,89,182,0.4);background:transparent;cursor:pointer;flex-shrink:0"></button>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;color:#ddd;font-weight:600">${w.name}</div></div>
+      ${w.price>0?`<span style="font-size:12px;color:#9B59B6;font-weight:700">${fS(w.price)}</span>`:""}
+      <button onclick="deleteWish('${w.id}')" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+    </div>`;
+  });
+  bought.forEach(w=>{
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(46,204,113,0.04);border-radius:9px;margin-bottom:4px;border:1px solid rgba(46,204,113,0.12)">
+      <button onclick="toggleWishDone('${w.id}')" style="width:22px;height:22px;border-radius:6px;border:2px solid #2ECC71;background:rgba(46,204,113,0.2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#2ECC71">✓</button>
+      <span style="flex:1;font-size:13px;color:#555;text-decoration:line-through">${w.name}</span>
+      <button onclick="deleteWish('${w.id}')" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+    </div>`;
+  });
+  if(items.length===0&&!showWishForm) html+=`<div style="text-align:center;padding:12px;color:#333;font-size:12px">Lista vacía. ¡Agrega algo que desees!</div>`;
+  el.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── 3. MONTHLY COMPARATOR ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function renderComparador(){
+  const el=$("hist-comparador");if(!el) return;
+  const mi=MS.indexOf(month);
+  if(!compareMo2){compareMo2=mi>0?MS[mi-1]:MS[MS.length-1];}
+  const m1=month;const m2=compareMo2;
+  const c1=calcM(data,m1);const c2=calcM(data,m2);
+
+  const pctChange=(a,b)=>{if(b===0) return a>0?"+100%":"0%";const p=Math.round(((a-b)/Math.abs(b))*100);return (p>=0?"+":"")+p+"%";};
+  const arrow=(a,b,invert)=>{if(a===b) return "→";return (invert?(a<b):(a>b))?"↑":"↓";};
+  const clr=(a,b,invert)=>{if(a===b) return "#555";return (invert?(a<b):(a>b))?"#2ECC71":"#E74C3C";};
+
+  let moOpts="";MS.forEach(m=>{moOpts+=`<option value="${m}" ${m===compareMo2?"selected":""}>${m}</option>`;});
+
+  let catComp="";
+  EG.forEach(g=>{
+    const e1=Object.values(data.months[m1]?.expenses?.[g.id]||{}).reduce((a,b)=>a+b,0);
+    const e2=Object.values(data.months[m2]?.expenses?.[g.id]||{}).reduce((a,b)=>a+b,0);
+    if(e1>0||e2>0){
+      catComp+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+        <span style="font-size:14px">${g.icon}</span>
+        <span style="flex:1;font-size:12px;color:#aaa">${g.name}</span>
+        <span style="font-size:11px;color:#888;width:70px;text-align:right">${fS(e2)}</span>
+        <span style="font-size:11px;font-weight:800;width:50px;text-align:center;color:${clr(e1,e2,true)}">${arrow(e1,e2,true)} ${pctChange(e1,e2)}</span>
+        <span style="font-size:11px;color:#ddd;font-weight:700;width:70px;text-align:right">${fS(e1)}</span>
+      </div>`;
+    }
+  });
+
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="font-size:13px;font-weight:700;color:#1ABC9C">🔁 Comparador Mensual</span>
+    <select onchange="compareMo2=this.value;render()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);color:#ddd;padding:4px 8px;border-radius:6px;font-size:11px;font-family:'Inter',sans-serif">${moOpts}</select>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;margin-bottom:12px;text-align:center">
+    <div style="padding:8px;background:rgba(0,0,0,0.15);border-radius:8px">
+      <div style="font-size:9px;color:#555">${m2}</div>
+    </div>
+    <div style="display:flex;align-items:center;font-size:12px;color:#555">vs</div>
+    <div style="padding:8px;background:rgba(26,188,156,0.06);border-radius:8px;border:1px solid rgba(26,188,156,0.18)">
+      <div style="font-size:9px;color:#1ABC9C;font-weight:700">${m1} (actual)</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+    <div style="padding:8px;background:rgba(46,204,113,0.05);border-radius:8px;text-align:center;border:1px solid rgba(46,204,113,0.12)">
+      <div style="font-size:9px;color:#555">INGRESOS</div>
+      <div style="font-size:12px;font-weight:800;color:#2ECC71">${fS(c1.inc)}</div>
+      <div style="font-size:10px;color:${clr(c1.inc,c2.inc,false)};font-weight:700">${arrow(c1.inc,c2.inc,false)} ${pctChange(c1.inc,c2.inc)}</div>
+    </div>
+    <div style="padding:8px;background:rgba(231,76,60,0.05);border-radius:8px;text-align:center;border:1px solid rgba(231,76,60,0.12)">
+      <div style="font-size:9px;color:#555">GASTOS</div>
+      <div style="font-size:12px;font-weight:800;color:#E74C3C">${fS(c1.exp)}</div>
+      <div style="font-size:10px;color:${clr(c1.exp,c2.exp,true)};font-weight:700">${arrow(c1.exp,c2.exp,true)} ${pctChange(c1.exp,c2.exp)}</div>
+    </div>
+    <div style="padding:8px;background:rgba(52,152,219,0.05);border-radius:8px;text-align:center;border:1px solid rgba(52,152,219,0.12)">
+      <div style="font-size:9px;color:#555">BALANCE</div>
+      <div style="font-size:12px;font-weight:800;color:${c1.bal>=0?"#3498DB":"#E74C3C"}">${fS(c1.bal)}</div>
+      <div style="font-size:10px;color:${clr(c1.bal,c2.bal,false)};font-weight:700">${arrow(c1.bal,c2.bal,false)} ${pctChange(c1.bal,c2.bal)}</div>
+    </div>
+  </div>
+  ${catComp?`<div style="font-size:10px;color:#555;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">POR CATEGORÍA</div>
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:#444;margin-bottom:4px;padding:0 4px"><span></span><span></span><span style="width:70px;text-align:right">${m2}</span><span style="width:50px;text-align:center">cambio</span><span style="width:70px;text-align:right">${m1}</span></div>
+  ${catComp}`:""}`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── 4. SUBSCRIPTIONS ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function addSub(){
+  const nameEl=$("sub-name");const priceEl=$("sub-price");
+  const name=(nameEl?nameEl.value:"").trim();const price=parseFloat(priceEl?priceEl.value:0)||0;
+  if(!name||price<=0) return;
+  data.subs.push({id:Date.now().toString(),name,price,active:true,date:todayStr()});
+  if(nameEl) nameEl.value="";if(priceEl) priceEl.value="";
+  showSubsForm=false;
+  flash("📍 Suscripción registrada","success");
+  schedSave();render();
+}
+function toggleSubActive(id){
+  const s=data.subs.find(x=>x.id===id);if(!s) return;
+  s.active=!s.active;
+  flash(s.active?"✅ Suscripción reactivada":"⏸️ Suscripción pausada","success");
+  schedSave();render();
+}
+function deleteSub(id){data.subs=data.subs.filter(x=>x.id!==id);schedSave();render();}
+
+function renderSubs(){
+  const el=$("exp-subs");if(!el) return;
+  const subs=data.subs||[];
+  const active=subs.filter(s=>s.active);
+  const paused=subs.filter(s=>!s.active);
+  const totalActive=active.reduce((a,s)=>a+s.price,0);
+  const totalPaused=paused.reduce((a,s)=>a+s.price,0);
+  const annual=totalActive*12;
+
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="font-size:13px;font-weight:700;color:#E91E63">📍 Suscripciones</span>
+    <button onclick="showSubsForm=!showSubsForm;render()" style="background:${showSubsForm?"rgba(255,255,255,0.05)":"linear-gradient(135deg,#E91E63,#C2185B)"};border:${showSubsForm?"1px solid rgba(255,255,255,0.1)":"none"};color:${showSubsForm?"#888":"#fff"};padding:5px 10px;border-radius:7px;cursor:pointer;font-weight:700;font-size:10px;font-family:'Inter',sans-serif">${showSubsForm?"Cancelar":"+ Nueva"}</button>
+  </div>`;
+
+  if(totalActive>0){
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+      <div style="padding:8px;background:rgba(233,30,99,0.06);border-radius:8px;border:1px solid rgba(233,30,99,0.18);text-align:center">
+        <div style="font-size:9px;color:#555">MENSUAL</div>
+        <div style="font-size:14px;font-weight:800;color:#E91E63">${fS(totalActive)}</div>
+      </div>
+      <div style="padding:8px;background:rgba(233,30,99,0.03);border-radius:8px;border:1px solid rgba(233,30,99,0.1);text-align:center">
+        <div style="font-size:9px;color:#555">ANUAL</div>
+        <div style="font-size:14px;font-weight:800;color:#C2185B">${fS(annual)}</div>
+      </div>
+    </div>`;
+  }
+  if(totalPaused>0){
+    html+=`<div style="padding:6px 10px;background:rgba(46,204,113,0.06);border-radius:8px;border:1px solid rgba(46,204,113,0.15);margin-bottom:10px;font-size:11px;color:#2ECC71;font-weight:600">💡 Ahorras ${fS(totalPaused)}/mes por subs pausadas</div>`;
+  }
+
+  if(showSubsForm){
+    html+=`<div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <input id="sub-name" class="inp" placeholder="Ej: Netflix, Spotify..." style="flex:1;font-size:13px;padding:8px"/>
+        <input id="sub-price" class="inp" type="number" placeholder="$/mes" style="width:80px;font-size:13px;padding:8px"/>
+      </div>
+      <button onclick="addSub()" style="width:100%;padding:8px;border-radius:8px;border:none;background:#E91E63;color:#fff;cursor:pointer;font-weight:700;font-size:12px;margin-top:8px;font-family:'Inter',sans-serif">📍 Registrar</button>
+    </div>`;
+  }
+
+  active.forEach(s=>{
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(0,0,0,0.15);border-radius:10px;border:1px solid rgba(255,255,255,0.05);margin-bottom:4px">
+      <span style="font-size:14px">🔴</span>
+      <span style="flex:1;font-size:13px;color:#ddd;font-weight:600">${s.name}</span>
+      <span style="font-size:12px;color:#E91E63;font-weight:700">${fS(s.price)}/m</span>
+      <button onclick="toggleSubActive('${s.id}')" style="background:none;border:1px solid rgba(255,255,255,0.1);color:#555;cursor:pointer;font-size:9px;padding:3px 6px;border-radius:5px;font-family:'Inter',sans-serif">⏸️</button>
+      <button onclick="deleteSub('${s.id}')" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+    </div>`;
+  });
+  paused.forEach(s=>{
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(46,204,113,0.03);border-radius:10px;border:1px solid rgba(46,204,113,0.1);margin-bottom:4px;opacity:0.6">
+      <span style="font-size:14px">⏸️</span>
+      <span style="flex:1;font-size:13px;color:#555;font-weight:600;text-decoration:line-through">${s.name}</span>
+      <span style="font-size:12px;color:#555;font-weight:700">${fS(s.price)}/m</span>
+      <button onclick="toggleSubActive('${s.id}')" style="background:none;border:1px solid rgba(46,204,113,0.2);color:#2ECC71;cursor:pointer;font-size:9px;padding:3px 6px;border-radius:5px;font-family:'Inter',sans-serif">▶️</button>
+      <button onclick="deleteSub('${s.id}')" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+    </div>`;
+  });
+  if(subs.length===0&&!showSubsForm) html+=`<div style="text-align:center;padding:12px;color:#333;font-size:12px">Sin suscripciones registradas</div>`;
+  el.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── 5. FOCUS / NO-SPEND CHALLENGE ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function startFocusChallenge(){
+  const daysEl=$("focus-days");const catEl=$("focus-cat");
+  const days=parseInt(daysEl?daysEl.value:7)||7;
+  const cat=catEl?catEl.value:"all";
+  const catName=cat==="all"?"todo":EG.find(g=>g.id===cat)?.name||cat;
+  data.focusChallenge={start:todayStr(),days,cat,catName,streak:0,failed:false};
+  showFocusForm=false;
+  flash(`⚡ ¡Reto activado! ${days} días sin gastar en ${catName}`,"xp");
+  schedSave();render();
+}
+function checkFocusChallenge(){
+  const fc=data.focusChallenge;if(!fc||fc.failed) return;
+  const start=new Date(fc.start+"T12:00:00");
+  const today=new Date();
+  const daysPassed=Math.floor((today-start)/(1000*60*60*24));
+  // Check if any expense was made in the category since start
+  const recentHist=(data.hist||[]).filter(h=>{
+    const hd=new Date(h.date);
+    return hd>=start&&(!h.type||h.type!=="income");
+  });
+  const broke=fc.cat==="all"?recentHist.length>0:recentHist.some(h=>h.group===fc.cat);
+  fc.streak=daysPassed;
+  if(broke&&daysPassed>0){fc.failed=true;flash("💔 Reto fallido... ¡Inténtalo de nuevo!","xp");}
+  if(daysPassed>=fc.days&&!broke){
+    data.xp=(data.xp||0)+fc.days;
+    flash(`🏆 ¡RETO COMPLETADO! +${fc.days}XP`,"xp");
+    setMoodTmp("celebrate",3000);
+    data.focusChallenge=null;
+  }
+}
+
+function renderFocusChallenge(){
+  const el=$("dash-focus");if(!el) return;
+  const fc=data.focusChallenge;
+
+  if(!fc&&!showFocusForm){
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:700;color:#00BCD4">⚡ Reto "No Gastes"</span>
+      <button onclick="showFocusForm=true;render()" style="background:linear-gradient(135deg,#00BCD4,#0097A7);border:none;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:11px;font-family:'Inter',sans-serif">🎯 Iniciar Reto</button>
+    </div>`;
+    return;
+  }
+
+  if(showFocusForm&&!fc){
+    let catOpts=`<option value="all">🚫 Todo (no gastar nada)</option>`;
+    EG.forEach(g=>{catOpts+=`<option value="${g.id}">${g.icon} ${g.name}</option>`;});
+    el.innerHTML=`<div style="font-size:13px;font-weight:700;color:#00BCD4;margin-bottom:10px">⚡ Nuevo Reto "No Gastes"</div>
+    <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:10px">
+      <div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">NO GASTAR EN:</div>
+      <select id="focus-cat" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);color:#ddd;padding:8px;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;margin-bottom:8px">${catOpts}</select>
+      <div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">DURANTE:</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        ${[3,7,14,30].map(d=>`<button onclick="document.getElementById('focus-days').value=${d}" style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(0,188,212,0.3);background:rgba(0,188,212,0.06);color:#00BCD4;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">${d}d</button>`).join("")}
+      </div>
+      <input id="focus-days" class="inp" type="number" value="7" min="1" max="90" style="font-size:13px;padding:8px;margin-bottom:8px;text-align:center"/>
+      <div style="display:flex;gap:8px">
+        <button onclick="startFocusChallenge()" style="flex:1;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,#00BCD4,#0097A7);color:#fff;cursor:pointer;font-weight:700;font-size:13px;font-family:'Inter',sans-serif">⚡ ACTIVAR RETO</button>
+        <button onclick="showFocusForm=false;render()" style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#555;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">✕</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  if(fc){
+    checkFocusChallenge();
+    const start=new Date(fc.start+"T12:00:00");
+    const today=new Date();
+    const daysPassed=Math.floor((today-start)/(1000*60*60*24));
+    const pct=Math.min(100,Math.round((daysPassed/fc.days)*100));
+    const remaining=Math.max(0,fc.days-daysPassed);
+    const dots=[];
+    for(let i=0;i<fc.days;i++){dots.push(i<daysPassed);}
+
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:13px;font-weight:700;color:${fc.failed?"#E74C3C":"#00BCD4"}">⚡ Reto: No gastar en ${fc.catName}</span>
+      <button onclick="data.focusChallenge=null;showFocusForm=false;schedSave();render()" style="background:none;border:none;color:#333;cursor:pointer;font-size:10px">✕</button>
+    </div>
+    ${fc.failed?`<div style="padding:10px;background:rgba(231,76,60,0.08);border-radius:10px;border:1px solid rgba(231,76,60,0.2);text-align:center;margin-bottom:8px">
+      <div style="font-size:20px;margin-bottom:4px">💔</div>
+      <div style="font-size:12px;color:#E74C3C;font-weight:700">Reto fallido en el día ${daysPassed}</div>
+      <button onclick="data.focusChallenge=null;showFocusForm=true;schedSave();render()" style="margin-top:8px;padding:6px 16px;border-radius:7px;border:none;background:#E74C3C;color:#fff;cursor:pointer;font-weight:700;font-size:11px;font-family:'Inter',sans-serif">🔄 Reintentar</button>
+    </div>`:`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:28px;font-weight:800;color:#00BCD4">${daysPassed}<span style="font-size:12px;color:#555">/${fc.days} días</span></span>
+      <span style="font-size:12px;color:#F1C40F;font-weight:700">${remaining>0?`Faltan ${remaining}`:"🏆 Completado"}</span>
+    </div>
+    <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;margin-bottom:8px">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#00BCD4,#26C6DA);transition:0.4s"></div>
+    </div>
+    <div style="display:flex;gap:2px;flex-wrap:wrap">${dots.map((done,i)=>`<div style="width:${Math.min(16,Math.floor(280/fc.days))}px;height:10px;border-radius:2px;background:${done?"rgba(0,188,212,0.5)":"rgba(255,255,255,0.04)"}"></div>`).join("")}</div>`}`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── 6. RPG DAILY QUOTE ───────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function renderDailyQuote(){
+  const el=$("dash-quote");if(!el) return;
+  // Deterministic quote based on day
+  const today=new Date();
+  const dayOfYear=Math.floor((today-new Date(today.getFullYear(),0,0))/(1000*60*60*24));
+  const q=RPG_QUOTES[dayOfYear%RPG_QUOTES.length];
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:24px;flex-shrink:0">${q.icon}</span>
+    <div style="font-size:12px;color:#aaa;font-style:italic;line-height:1.5">"${q.text}"</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 // ══════════════════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", () => {
   $("loading").style.display = "none";
