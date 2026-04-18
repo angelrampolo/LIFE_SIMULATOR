@@ -79,7 +79,8 @@ function mkInit() {
     stats: { str: 0, int: 0, vit: 0, luk: 0, cha: 0 },
     avatar: { hair: "messy", hairColor: "brown", skin: "medium", eyeColor: "brown", outfit: "tshirt", outfitColor: "blue", accessory: "none" },
     shopList: [],
-    reminders: []
+    reminders: [],
+    projects: []
   };
   MS.forEach(m => { b.months[m] = { income: {}, expenses: {}, accounts: {} }; });
   return b;
@@ -207,6 +208,43 @@ function ensureData(d) {
   fixArr('debts');
   fixArr('wishlist');
   fixArr('subs');
+  fixArr('projects');
+  // Fix nested arrays inside projects (milestones, columns)
+  (d.projects || []).forEach(p => {
+    if (!p.milestones) p.milestones = [];
+    else if (!Array.isArray(p.milestones)) {
+      const arr = [];
+      Object.keys(p.milestones).forEach(k => { if (p.milestones[k] && typeof p.milestones[k] === 'object') arr.push(p.milestones[k]); });
+      p.milestones = arr;
+    }
+    if (!p.kanbanColumns) p.kanbanColumns = DEFAULT_KANBAN_COLUMNS.map(c => ({...c}));
+    else if (!Array.isArray(p.kanbanColumns)) {
+      const arr = [];
+      Object.keys(p.kanbanColumns).forEach(k => { if (p.kanbanColumns[k] && typeof p.kanbanColumns[k] === 'object') arr.push(p.kanbanColumns[k]); });
+      p.kanbanColumns = arr.length ? arr : DEFAULT_KANBAN_COLUMNS.map(c => ({...c}));
+    }
+    if (!p.tags) p.tags = [];
+    else if (!Array.isArray(p.tags)) {
+      const arr = [];
+      Object.keys(p.tags).forEach(k => { if (p.tags[k]) arr.push(p.tags[k]); });
+      p.tags = arr;
+    }
+    if (!p.expenseIds) p.expenseIds = [];
+    else if (!Array.isArray(p.expenseIds)) {
+      const arr = [];
+      Object.keys(p.expenseIds).forEach(k => { if (p.expenseIds[k]) arr.push(p.expenseIds[k]); });
+      p.expenseIds = arr;
+    }
+  });
+  // Fix subtasks inside todos (Firebase converts arrays to objects)
+  (d.todos || []).forEach(t => {
+    if (!t.subtasks) t.subtasks = [];
+    else if (!Array.isArray(t.subtasks)) {
+      const arr = [];
+      Object.keys(t.subtasks).forEach(k => { if (t.subtasks[k] && typeof t.subtasks[k] === 'object') arr.push(t.subtasks[k]); });
+      t.subtasks = arr;
+    }
+  });
   // Fix nested arrays inside habits (history per habit, payments per debt, etc.)
   (d.habits || []).forEach(h => {
     if (h.history && typeof h.history !== 'object') h.history = {};
@@ -476,10 +514,11 @@ function saveInc(id, amt, note) {
 }
 
 // ── Save expense ─────────────────────────────────────────────────────────────
-function saveExp(gid, cid, amt, note) {
+function saveExp(gid, cid, amt, note, projectId) {
   let gn = "", cn = "", gi = "📦";
   for (let i = 0; i < EG.length; i++) { if (EG[i].id === gid) { gn = EG[i].name; gi = EG[i].icon; for (let j = 0; j < EG[i].cats.length; j++) { if (EG[i].cats[j].id === cid) cn = EG[i].cats[j].name; } } }
   const entry = { id: Date.now().toString(), date: new Date().toISOString(), month, group: gid, cat: cid, amount: amt, note, groupName: gn, catName: cn, icon: gi };
+  if (projectId) entry.projectId = projectId;
   if (!data.months[month].expenses) data.months[month].expenses = {};
   if (!data.months[month].expenses[gid]) data.months[month].expenses[gid] = {};
   data.months[month].expenses[gid][cid] = (data.months[month].expenses[gid][cid] || 0) + amt;
@@ -670,6 +709,7 @@ function openExpenseModal(gid, cid, cat, groupName) {
   $("modal-exp-cat").textContent = cat.name;
   $("modal-exp-amt").value = "";
   $("modal-exp-note").value = "";
+  if (typeof pjPopulateExpenseProjectSelect === "function") pjPopulateExpenseProjectSelect();
   m.style.display = "flex";
   setTimeout(() => $("modal-exp-amt").focus(), 100);
 }
@@ -692,7 +732,9 @@ function submitExpense() {
   const m = $("modal-expense");
   const a = parseFloat($("modal-exp-amt").value) || 0;
   const n = $("modal-exp-note").value || "";
-  if (a > 0) saveExp(m.dataset.gid, m.dataset.cid, a, n);
+  const projSel = $("modal-exp-project");
+  const pid = projSel ? (projSel.value || null) : null;
+  if (a > 0) saveExp(m.dataset.gid, m.dataset.cid, a, n, pid);
 }
 function submitIncome() {
   const m = $("modal-income");
@@ -790,15 +832,17 @@ function render() {
   $("view-expenses").classList.toggle("hidden", view !== "expenses");
   $("view-accounts").classList.toggle("hidden", view !== "accounts");
   $("view-todos").classList.toggle("hidden", view !== "todos");
+  $("view-projects").classList.toggle("hidden", view !== "projects");
   $("view-shopping").classList.toggle("hidden", view !== "shopping");
   $("view-history").classList.toggle("hidden", view !== "history");
 
   // ── Dashboard ──
-  if (view === "dashboard") { renderDashboard(ct, rank); renderReminders(); renderWeeklySummary(); renderTrendChart(); renderHabitsPreview(); renderJournalCard(); renderDailyQuote(); renderFocusChallenge(); }
+  if (view === "dashboard") { renderDashboard(ct, rank); renderReminders(); renderWeeklySummary(); renderTrendChart(); renderHabitsPreview(); renderJournalCard(); renderDailyQuote(); renderFocusChallenge(); if (typeof pjRenderDashWidget === "function") pjRenderDashWidget(); }
   if (view === "income") renderIncome(ct);
   if (view === "expenses") { renderExpenses(ct); renderRecurring(); renderSubs(); }
   if (view === "accounts") { renderAccounts(ct, startT, monthStarts); renderGoals(); renderDebts(); }
   if (view === "todos") renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDisplay);
+  if (view === "projects" && typeof renderProjects === "function") renderProjects();
   if (view === "shopping") { renderShopping(); renderWishlist(); }
   if (view === "history") { renderHistory(); renderComparador(); }
   if (showSettings) renderSettingsExtras();

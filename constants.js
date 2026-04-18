@@ -78,7 +78,8 @@ const QS = [
   {id:"q4",n:"Balance positivo",xp:20,ck:(d,m)=>{let i=Object.values(d.months[m]?.income||{}).reduce((a,b)=>a+b,0);let e=0;Object.values(d.months[m]?.expenses||{}).forEach(g=>Object.values(g).forEach(v=>e+=v));return i>0&&i>e}},
   {id:"q5",n:"Ahorra 20%",xp:30,ck:(d,m)=>{let i=Object.values(d.months[m]?.income||{}).reduce((a,b)=>a+b,0);let e=0;Object.values(d.months[m]?.expenses||{}).forEach(g=>Object.values(g).forEach(v=>e+=v));return i>0&&((i-e)/i)>=0.2}},
   {id:"q6",n:"3 tareas completadas hoy",xp:15,ck:d=>{let td=new Date().toISOString().slice(0,10);return(d.todos||[]).filter(t=>t.done&&t.date===td).length>=3}},
-  {id:"q7",n:"Lista del super completa",xp:10,ck:d=>(d.shopList||[]).filter(x=>x.done).length>=5}
+  {id:"q7",n:"Lista del super completa",xp:10,ck:d=>(d.shopList||[]).filter(x=>x.done).length>=5},
+  {id:"q8",n:"Avanza en un proyecto",xp:10,ck:d=>{const td=new Date().toISOString().slice(0,10);return(d.todos||[]).some(t=>t.projectId&&t.done&&t.date===td);}}
 ];
 
 // ── Áreas (stats del personaje) ──────────────────────────────────────────────
@@ -121,8 +122,103 @@ const NAV = [
   {id:"expenses", icon:"🛡️",label:"Gastos"},
   {id:"accounts", icon:"🏦",label:"Cofres"},
   {id:"todos",    icon:"📋",label:"Tareas"},
+  {id:"projects", icon:"🎯",label:"Proyectos"},
   {id:"shopping", icon:"🛒",label:"Compras"},
   {id:"history",  icon:"📖",label:"Historial"},
+];
+
+// ── Proyectos: estados, prioridades, kanban, plantillas ──────────────────────
+const PROJECT_STATUS = [
+  {id:"planning", n:"Planificación", c:"#78909C", icon:"📝"},
+  {id:"active",   n:"En curso",      c:"#3498DB", icon:"🚀"},
+  {id:"paused",   n:"En pausa",      c:"#F39C12", icon:"⏸️"},
+  {id:"done",     n:"Completado",    c:"#2ECC71", icon:"✅"},
+  {id:"archived", n:"Archivado",     c:"#555",    icon:"📦"}
+];
+const PROJECT_PRIORITY = [
+  {id:"low",      n:"Baja",     c:"#78909C", icon:"🔽"},
+  {id:"med",      n:"Media",    c:"#3498DB", icon:"➖"},
+  {id:"high",     n:"Alta",     c:"#F39C12", icon:"🔼"},
+  {id:"critical", n:"Crítica",  c:"#E74C3C", icon:"🔥"}
+];
+const DEFAULT_KANBAN_COLUMNS = [
+  {id:"todo",   n:"Por hacer", c:"#78909C"},
+  {id:"doing",  n:"En curso",  c:"#3498DB"},
+  {id:"review", n:"Revisión",  c:"#F39C12"},
+  {id:"done",   n:"Hecho",     c:"#2ECC71"}
+];
+const PROJECT_TEMPLATES = [
+  {
+    id:"tesis", name:"Tesis / TFG", icon:"🎓", color:"#3498DB", area:"int",
+    description:"Proyecto de investigación académica con hitos clásicos.",
+    columns:[
+      {id:"backlog", n:"Por investigar", c:"#78909C"},
+      {id:"writing", n:"Escribiendo",    c:"#3498DB"},
+      {id:"review",  n:"Revisión",       c:"#F39C12"},
+      {id:"done",    n:"Listo",          c:"#2ECC71"}
+    ],
+    milestones:[
+      {name:"Propuesta aprobada",     xpReward:20},
+      {name:"Marco teórico completo", xpReward:25},
+      {name:"Metodología definida",   xpReward:25},
+      {name:"Resultados obtenidos",   xpReward:30},
+      {name:"Defensa exitosa",        xpReward:50}
+    ],
+    tasks:[
+      {text:"Definir pregunta de investigación", diff:"hard",   col:"backlog"},
+      {text:"Revisión bibliográfica inicial",    diff:"medium", col:"backlog"},
+      {text:"Redactar introducción",             diff:"medium", col:"backlog"}
+    ]
+  },
+  {
+    id:"curso", name:"Curso online", icon:"📚", color:"#9B59B6", area:"int",
+    description:"Completar un curso estructurado con módulos y evaluaciones.",
+    columns:null,
+    milestones:[
+      {name:"Módulo 1 completado", xpReward:10},
+      {name:"Módulo intermedio",   xpReward:15},
+      {name:"Proyecto final",      xpReward:25},
+      {name:"Certificado obtenido",xpReward:30}
+    ],
+    tasks:[
+      {text:"Ver primera clase",          diff:"easy",   col:"todo"},
+      {text:"Completar ejercicios sem 1", diff:"medium", col:"todo"}
+    ]
+  },
+  {
+    id:"cert", name:"Certificación profesional", icon:"🏅", color:"#F39C12", area:"int",
+    description:"Prepararse y aprobar un examen de certificación.",
+    columns:null,
+    milestones:[
+      {name:"Inscripción realizada",  xpReward:10},
+      {name:"50% del temario",        xpReward:20},
+      {name:"Simulacro aprobado",     xpReward:25},
+      {name:"Certificación obtenida", xpReward:50}
+    ],
+    tasks:[
+      {text:"Comprar material de estudio", diff:"easy", col:"todo"},
+      {text:"Simulacro 1",                  diff:"hard", col:"todo"}
+    ]
+  },
+  {
+    id:"libro", name:"Leer libro", icon:"📖", color:"#2ECC71", area:"int",
+    description:"Leer un libro completo y tomar notas.",
+    columns:null,
+    milestones:[
+      {name:"25% leído", xpReward:5},
+      {name:"50% leído", xpReward:10},
+      {name:"Terminado", xpReward:20}
+    ],
+    tasks:[
+      {text:"Leer primer capítulo", diff:"easy",   col:"todo"},
+      {text:"Notas y resumen",      diff:"medium", col:"todo"}
+    ]
+  },
+  {
+    id:"blank", name:"En blanco", icon:"🎯", color:"#FFD700", area:"int",
+    description:"Empieza desde cero con tu propia estructura.",
+    columns:null, milestones:[], tasks:[]
+  }
 ];
 
 // ── Temas de Color ───────────────────────────────────────────────────────────

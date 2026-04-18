@@ -185,6 +185,134 @@ button{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}
 .hidden{display:none!important}
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
+/* ── PROJECTS — Premium Design ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Stagger animation for project cards */
+@keyframes pjSlideIn{
+  from{opacity:0;transform:translateY(18px) scale(0.97)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes pjRingFill{
+  from{stroke-dashoffset:var(--ring-circumference)}
+  to{stroke-dashoffset:var(--ring-offset)}
+}
+@keyframes pjPulseGlow{
+  0%,100%{box-shadow:0 0 0 rgba(255,215,0,0)}
+  50%{box-shadow:0 0 20px rgba(255,215,0,0.12)}
+}
+@keyframes pjFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-8px)}
+}
+@keyframes pjShimmer{
+  0%{background-position:-200% 0}
+  100%{background-position:200% 0}
+}
+
+/* Project card with stagger */
+.pj-card{
+  animation:pjSlideIn 0.35s ease-out both;
+  transition:transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  cursor:pointer;
+}
+.pj-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 28px rgba(0,0,0,0.5);
+}
+.pj-card:active{transform:scale(0.98)}
+
+/* SVG progress ring */
+.pj-ring-bg{fill:none;stroke:rgba(255,255,255,0.06);stroke-width:3}
+.pj-ring-fill{
+  fill:none;stroke-width:3;stroke-linecap:round;
+  animation:pjRingFill 1s ease-out both;
+  transition:stroke-dashoffset 0.6s ease-out;
+}
+
+/* Quick capture bar */
+.pj-quick-capture{
+  background:linear-gradient(135deg,rgba(255,215,0,0.06),rgba(255,165,0,0.04));
+  border:1px solid rgba(255,215,0,0.15);
+  border-radius:14px;
+  padding:12px 14px;
+  display:flex;gap:8px;align-items:center;
+  transition:border-color 0.2s, box-shadow 0.2s;
+}
+.pj-quick-capture:focus-within{
+  border-color:rgba(255,215,0,0.4);
+  box-shadow:0 0 0 3px rgba(255,215,0,0.06);
+}
+
+/* Next actions section */
+.pj-next-action{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;
+  background:rgba(0,0,0,0.18);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:10px;
+  transition:background 0.2s, border-color 0.2s;
+  cursor:pointer;
+}
+.pj-next-action:hover{
+  background:rgba(255,255,255,0.03);
+  border-color:rgba(255,255,255,0.1);
+}
+
+/* Collapsible filters */
+.pj-filters-drawer{
+  max-height:0;overflow:hidden;
+  transition:max-height 0.35s ease-out, opacity 0.25s;
+  opacity:0;
+}
+.pj-filters-drawer.open{
+  max-height:400px;
+  opacity:1;
+}
+
+/* Filter toggle button */
+.pj-filter-toggle{
+  background:rgba(0,0,0,0.25);
+  border:1px solid rgba(255,255,255,0.08);
+  color:#888;padding:6px 12px;border-radius:20px;
+  cursor:pointer;font-size:11px;font-weight:700;
+  font-family:'Inter',sans-serif;
+  transition:all 0.2s;display:inline-flex;align-items:center;gap:5px;
+}
+.pj-filter-toggle:hover{border-color:rgba(255,255,255,0.15);color:#aaa}
+.pj-filter-toggle.active{
+  color:#FFD700;border-color:rgba(255,215,0,0.3);
+  background:rgba(255,215,0,0.08);
+}
+
+/* Stats inline pills */
+.pj-stat-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;
+  border:1px solid;
+}
+
+/* Empty state */
+.pj-empty-icon{
+  font-size:56px;
+  animation:pjFloat 3s ease-in-out infinite;
+}
+.pj-empty-shimmer{
+  background:linear-gradient(90deg,transparent 25%,rgba(255,215,0,0.08) 50%,transparent 75%);
+  background-size:200% 100%;
+  animation:pjShimmer 3s infinite;
+  border-radius:12px;padding:2px;
+}
+
+/* Milestone timeline */
+.pj-ms-dot{
+  width:12px;height:12px;border-radius:50%;
+  border:2px solid;flex-shrink:0;
+  transition:transform 0.2s, background 0.2s;
+}
+.pj-ms-dot:hover{transform:scale(1.3)}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 /* ── RESPONSIVE — Mobile First ─────────────────────────────────────────── */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 @media(max-width:480px){

@@ -12,7 +12,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>LifeControl RPG — Finanzas Personales</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=10"/>
+  <link rel="stylesheet" href="styles.css?v=13"/>
 </head>
 <body>
 
@@ -194,6 +194,8 @@
     <div id="dash-journal" class="card" style="border-color:rgba(255,215,0,0.12);margin-top:12px"></div>
     <!-- Focus Challenge -->
     <div id="dash-focus" class="card" style="border-color:rgba(0,188,212,0.15);margin-top:12px"></div>
+    <!-- Projects widget -->
+    <div id="dash-projects" class="card hidden" style="border-color:rgba(255,215,0,0.2);margin-top:12px"></div>
     <!-- Reminders -->
     <div id="dash-reminders" class="card" style="border-color:rgba(255,215,0,0.12);margin-top:12px"></div>
   </div>
@@ -354,6 +356,11 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: PROJECTS ══════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-projects" class="hidden"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- ═══════════════════ VIEW: SHOPPING ══════════════════════════════════ -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div id="view-shopping" class="hidden">
@@ -430,9 +437,13 @@
       <div style="font-size:12px;color:#777;margin-bottom:7px">Monto ($)</div>
       <input id="modal-exp-amt" class="inp" type="number" min="0" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter')submitExpense()" style="font-size:26px;padding:13px"/>
     </div>
-    <div style="margin-bottom:20px">
+    <div style="margin-bottom:14px">
       <div style="font-size:12px;color:#777;margin-bottom:7px">Nota (opcional)</div>
       <input id="modal-exp-note" class="inp" placeholder="Descripción del gasto..." onkeydown="if(event.key==='Enter')submitExpense()"/>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;color:#777;margin-bottom:7px">Proyecto (opcional)</div>
+      <select id="modal-exp-project" class="inp" style="padding:11px"></select>
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="closeModal()" style="flex:1;padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
@@ -464,6 +475,47 @@
   </div>
 </div>
 
+<!-- Project templates modal -->
+<div id="modal-pj-templates" class="modal-overlay" style="display:none" onclick="pjCloseTemplates()">
+  <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:460px;border:1px solid rgba(255,215,0,0.3);padding:22px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <span style="font-size:15px;font-weight:800;color:#FFD700">✨ Elige una plantilla</span>
+      <button onclick="pjCloseTemplates()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="modal-pj-templates-body"></div>
+  </div>
+</div>
+
+<!-- Project edit modal -->
+<div id="modal-pj-edit" class="modal-overlay" style="display:none" onclick="pjCloseEdit()">
+  <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:460px;border:1px solid rgba(255,215,0,0.3);padding:22px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <span style="font-size:15px;font-weight:800;color:#FFD700">✏️ Editar proyecto</span>
+      <button onclick="pjCloseEdit()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="margin-bottom:10px"><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Nombre</div><input id="pj-edit-name" class="inp"/></div>
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:10px">
+      <div><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Icono</div><input id="pj-edit-icon" class="inp" maxlength="4" style="text-align:center;font-size:20px"/></div>
+      <div><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Color</div><input id="pj-edit-color" type="color" class="inp" style="padding:5px;height:42px"/></div>
+    </div>
+    <div style="margin-bottom:10px"><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Descripción</div><textarea id="pj-edit-desc" class="inp" rows="3" style="resize:vertical"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Inicio</div><input id="pj-edit-start" type="date" class="inp"/></div>
+      <div><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Entrega</div><input id="pj-edit-due" type="date" class="inp"/></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Estado</div><select id="pj-edit-status" class="inp" style="padding:11px"></select></div>
+      <div><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Prioridad</div><select id="pj-edit-priority" class="inp" style="padding:11px"></select></div>
+    </div>
+    <div style="margin-bottom:10px"><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Área RPG</div><select id="pj-edit-area" class="inp" style="padding:11px"></select></div>
+    <div style="margin-bottom:18px"><div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Tags (separados por coma)</div><input id="pj-edit-tags" class="inp" placeholder="ej: urgente, trabajo, estudio"/></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="pjCloseEdit()" style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="pjSubmitEdit()" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#FFD700,#F39C12);color:#000;cursor:pointer;font-weight:800;font-size:14px">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ NAV BAR ═══════════════════════════════════ -->
 <div class="bottom-nav">
   <div class="bottom-nav-inner">
@@ -472,6 +524,7 @@
     <button id="nav-expenses" class="nb" onclick="setView('expenses')"><span class="nb-icon" style="font-size:18px">🛡️</span><span>Gastos</span></button>
     <button id="nav-accounts" class="nb" onclick="setView('accounts')"><span class="nb-icon" style="font-size:18px">🏦</span><span>Cofres</span></button>
     <button id="nav-todos" class="nb" onclick="setView('todos')"><span class="nb-icon" style="font-size:18px">📋</span><span>Tareas</span></button>
+    <button id="nav-projects" class="nb" onclick="setView('projects')"><span class="nb-icon" style="font-size:18px">🎯</span><span>Proyectos</span></button>
     <button id="nav-shopping" class="nb" onclick="setView('shopping')"><span class="nb-icon" style="font-size:18px">🛒</span><span>Compras</span></button>
     <button id="nav-history" class="nb" onclick="setView('history')"><span class="nb-icon" style="font-size:18px">📖</span><span>Historial</span></button>
   </div>
@@ -479,9 +532,10 @@
 
 </div><!-- end #app -->
 
-<script src="constants.js?v=10"></script>
-<script src="avatar.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="constants.js?v=11"></script>
+<script src="avatar.js?v=11"></script>
+<script src="projects.js?v=13"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
 
