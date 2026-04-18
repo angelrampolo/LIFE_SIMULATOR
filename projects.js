@@ -373,30 +373,58 @@ function pjDragStart(ev, tid) { pjDragId = tid; pjDragKind = "task"; ev.dataTran
 function pjDragOver(ev) { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; }
 function pjDropOnCol(ev, colId) { ev.preventDefault(); if (pjDragKind !== "task" || !pjDragId) return; pjMoveTask(pjDragId, colId); pjDragId = null; pjDragKind = null; }
 
-// ── Mejora #8: Touch DnD for mobile ──────────────────────────────────────────
+// ── Mejora #8: Touch DnD for mobile (LONG-PRESS to drag) ─────────────────────
+// Uses a 400ms long-press to start drag. Normal taps pass through to subtask
+// inputs, checkboxes, and delete buttons without interference.
+let pjTouchTimer = null;
+let pjTouchStartX = 0;
+let pjTouchStartY = 0;
+const PJ_TOUCH_THRESHOLD = 10; // px - movement before cancelling long-press
+
 function pjTouchStart(ev, tid) {
+  // Don't intercept touches on inputs, buttons, selects
+  const tag = (ev.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "button" || tag === "select" || tag === "textarea") return;
+
   const touch = ev.touches[0]; if (!touch) return;
-  pjDragId = tid; pjDragKind = "task";
-  const el = ev.currentTarget;
-  // Create clone for visual feedback
-  pjTouchClone = el.cloneNode(true);
-  pjTouchClone.style.position = "fixed";
-  pjTouchClone.style.zIndex = "9999";
-  pjTouchClone.style.opacity = "0.85";
-  pjTouchClone.style.transform = "scale(1.05) rotate(2deg)";
-  pjTouchClone.style.pointerEvents = "none";
-  pjTouchClone.style.width = el.offsetWidth + "px";
-  pjTouchClone.style.left = (touch.clientX - el.offsetWidth / 2) + "px";
-  pjTouchClone.style.top = (touch.clientY - 30) + "px";
-  pjTouchClone.style.boxShadow = "0 12px 40px rgba(0,0,0,0.7)";
-  document.body.appendChild(pjTouchClone);
-  el.style.opacity = "0.3";
-  pjTouchDragEl = el;
+  pjTouchStartX = touch.clientX;
+  pjTouchStartY = touch.clientY;
+
+  // Start a long-press timer — only start drag after 400ms hold
+  clearTimeout(pjTouchTimer);
+  pjTouchTimer = setTimeout(() => {
+    pjDragId = tid; pjDragKind = "task";
+    const el = ev.currentTarget;
+    if (!el || !document.body.contains(el)) return;
+    // Haptic feedback if available
+    if (navigator.vibrate) navigator.vibrate(30);
+    // Create clone for visual feedback
+    pjTouchClone = el.cloneNode(true);
+    pjTouchClone.style.cssText = `position:fixed;z-index:9999;opacity:0.85;transform:scale(1.05) rotate(2deg);pointer-events:none;width:${el.offsetWidth}px;left:${pjTouchStartX - el.offsetWidth/2}px;top:${pjTouchStartY - 30}px;box-shadow:0 12px 40px rgba(0,0,0,0.7);border-radius:8px;transition:none`;
+    document.body.appendChild(pjTouchClone);
+    el.style.opacity = "0.3";
+    pjTouchDragEl = el;
+  }, 400);
 }
+
 function pjTouchMove(ev) {
-  if (!pjTouchClone) return;
-  ev.preventDefault();
   const touch = ev.touches[0]; if (!touch) return;
+
+  // If we haven't started dragging yet, check if we moved too far (cancel long-press)
+  if (!pjTouchClone && pjTouchTimer) {
+    const dx = Math.abs(touch.clientX - pjTouchStartX);
+    const dy = Math.abs(touch.clientY - pjTouchStartY);
+    if (dx > PJ_TOUCH_THRESHOLD || dy > PJ_TOUCH_THRESHOLD) {
+      clearTimeout(pjTouchTimer);
+      pjTouchTimer = null;
+      // Allow normal scroll
+      return;
+    }
+  }
+
+  // If dragging, move the clone
+  if (!pjTouchClone) return;
+  ev.preventDefault(); // Only prevent default WHEN actually dragging
   pjTouchClone.style.left = (touch.clientX - pjTouchClone.offsetWidth / 2) + "px";
   pjTouchClone.style.top = (touch.clientY - 30) + "px";
   // Highlight drop target
@@ -410,16 +438,23 @@ function pjTouchMove(ev) {
     }
   });
 }
+
 function pjTouchEnd(ev) {
+  // Cancel long-press timer if still pending
+  clearTimeout(pjTouchTimer); pjTouchTimer = null;
+
   if (pjTouchClone) { pjTouchClone.remove(); pjTouchClone = null; }
   if (pjTouchDragEl) { pjTouchDragEl.style.opacity = "1"; pjTouchDragEl = null; }
   if (!pjDragId) return;
+
   const touch = ev.changedTouches[0]; if (!touch) { pjDragId = null; return; }
   // Find which column we dropped on
+  let dropped = false;
   document.querySelectorAll("[data-pj-col]").forEach(col => {
     const r = col.getBoundingClientRect();
     if (touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom) {
       pjMoveTask(pjDragId, col.dataset.pjCol);
+      dropped = true;
     }
     col.style.background = ""; col.style.borderColor = "";
   });
@@ -860,7 +895,7 @@ function pjRenderKanban(p) {
   </div>`;
 
   // Kanban columns with touch DnD (Mejora #8)
-  html += `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px" ontouchmove="pjTouchMove(event)">`;
+  html += `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px" >`;
   cols.forEach(col => {
     const colTasks = ts.filter(t => (t.columnId || cols[0].id) === col.id);
     html += `<div data-pj-col="${col.id}" ondragover="pjDragOver(event)" ondrop="pjDropOnCol(event,'${col.id}')" style="min-width:200px;flex:1;max-width:260px;background:rgba(0,0,0,0.2);border-radius:12px;padding:10px;border:1px solid ${col.c}22;transition:background 0.2s,border-color 0.2s">
@@ -897,8 +932,8 @@ function pjRenderKanbanCard(t, p) {
   const subDone = subs.filter(s => s.done).length;
 
   let html = `<div draggable="true" ondragstart="pjDragStart(event,'${t.id}')"
-    ontouchstart="pjTouchStart(event,'${t.id}')" ontouchend="pjTouchEnd(event)"
-    style="padding:8px 10px;background:rgba(14,18,30,0.85);border-radius:8px;border:1px solid rgba(255,255,255,0.06);cursor:grab;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+    ontouchstart="pjTouchStart(event,'${t.id}')" ontouchend="pjTouchEnd(event)" ontouchmove="pjTouchMove(event)"
+    style="padding:8px 10px;background:rgba(14,18,30,0.85);border-radius:8px;border:1px solid rgba(255,255,255,0.06);cursor:grab;transition:transform 0.15s;touch-action:pan-y" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
     <div style="font-size:12px;color:${t.done ? '#555' : '#eee'};text-decoration:${t.done ? 'line-through' : 'none'};margin-bottom:5px;line-height:1.3">${pjEscape(t.text)}</div>`;
 
   // Subtask progress bar (if any)
