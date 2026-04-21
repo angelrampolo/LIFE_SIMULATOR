@@ -117,14 +117,16 @@ const REMINDER_PRI = [
 
 // ── Navegación ───────────────────────────────────────────────────────────────
 const NAV = [
-  {id:"dashboard",icon:"🗺️",label:"Inicio"},
-  {id:"income",   icon:"💰",label:"Ingresos"},
-  {id:"expenses", icon:"🛡️",label:"Gastos"},
-  {id:"accounts", icon:"🏦",label:"Cofres"},
-  {id:"todos",    icon:"📋",label:"Tareas"},
-  {id:"projects", icon:"🎯",label:"Proyectos"},
-  {id:"shopping", icon:"🛒",label:"Compras"},
-  {id:"history",  icon:"📖",label:"Historial"},
+  {id:"dashboard",  icon:"🗺️", label:"Inicio"},
+  {id:"income",     icon:"💰", label:"Ingresos"},
+  {id:"expenses",   icon:"🛡️", label:"Gastos"},
+  {id:"accounts",   icon:"🏦", label:"Cofres"},
+  {id:"todos",      icon:"📋", label:"Tareas"},
+  {id:"schedule",   icon:"🗓️", label:"Agenda"},
+  {id:"university", icon:"🎓", label:"U"},
+  {id:"projects",   icon:"🎯", label:"Proyectos"},
+  {id:"shopping",   icon:"🛒", label:"Compras"},
+  {id:"history",    icon:"📖", label:"Historial"},
 ];
 
 // ── Proyectos: estados, prioridades, kanban, plantillas ──────────────────────

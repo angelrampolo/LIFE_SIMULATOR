@@ -356,9 +356,100 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: UNIVERSITY ════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-university" class="hidden">
+    <!-- Header -->
+    <div class="card" style="border-color:rgba(52,152,219,0.25);padding:13px 15px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:26px">🎓</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;color:#3498DB">UNIVERSIDAD</div>
+          <div id="uni-header-sub" style="font-size:11px;color:#555;margin-top:2px"></div>
+        </div>
+        <button onclick="showUniSbjForm=true;render()" style="padding:7px 13px;border-radius:9px;border:1px solid rgba(52,152,219,0.4);background:rgba(52,152,219,0.1);color:#3498DB;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">+ Materia</button>
+      </div>
+      <!-- Progress bar -->
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:5px">
+        <span>Actividades completadas</span>
+        <span id="uni-progress-count" style="color:#3498DB;font-weight:700"></span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden">
+        <div id="uni-progress-bar" style="height:100%;background:linear-gradient(90deg,#3498DB,#9B59B6);transition:0.4s"></div>
+      </div>
+    </div>
+    <!-- Subject form (inline) -->
+    <div id="uni-sbj-form" class="card hidden" style="border-color:rgba(52,152,219,0.2);margin-bottom:12px">
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Nueva Materia</div>
+      <input id="uni-sbj-name" class="inp" placeholder="Ej: Cálculo Diferencial, Física..." style="margin-bottom:8px;font-size:15px;padding:12px"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Semestre/Nivel</div>
+          <input id="uni-sbj-level" class="inp" placeholder="Ej: 5to semestre" style="font-size:13px;padding:10px"/>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Icono</div>
+          <input id="uni-sbj-icon" class="inp" maxlength="4" placeholder="📚" style="font-size:20px;text-align:center;padding:10px"/>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:#777;margin-bottom:6px;font-weight:700">Color</div>
+        <div id="uni-color-picker" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="showUniSbjForm=false;render()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
+        <button onclick="addSubject()" style="flex:2;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#3498DB,#9B59B6);color:#fff;cursor:pointer;font-weight:800;font-size:14px">+ Agregar Materia</button>
+      </div>
+    </div>
+    <!-- Subject filter -->
+    <div id="uni-sbj-filter" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px"></div>
+    <!-- Task form (inline) -->
+    <div id="uni-task-form" class="card hidden" style="border-color:rgba(52,152,219,0.15);margin-bottom:12px">
+      <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Nueva Actividad</div>
+      <div style="font-size:11px;color:#666;margin-bottom:6px">Para: <b id="uni-task-for-name" style="color:#3498DB"></b></div>
+      <input id="uni-task-text" class="inp" placeholder="Ej: Entregar tarea 3, Estudiar para parcial..." style="margin-bottom:8px;font-size:15px;padding:12px"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Tipo</div>
+          <select id="uni-task-type" class="inp" style="padding:10px;font-size:13px">
+            <option value="tarea">📝 Tarea</option>
+            <option value="examen">📋 Examen/Parcial</option>
+            <option value="proyecto">🚀 Proyecto</option>
+            <option value="recordatorio">📌 Recordatorio</option>
+            <option value="otro">📦 Otro</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Prioridad</div>
+          <select id="uni-task-pri" class="inp" style="padding:10px;font-size:13px">
+            <option value="high">🔴 Alta</option>
+            <option value="medium" selected>🟡 Media</option>
+            <option value="low">🟢 Baja</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Fecha límite</div>
+        <input id="uni-task-due" type="date" class="inp" style="font-size:13px;padding:10px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="showUniTaskForm=false;uniTaskSbj=null;render()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
+        <button onclick="addUniTask()" style="flex:2;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#3498DB,#2980B9);color:#fff;cursor:pointer;font-weight:800;font-size:14px">+ Agregar Actividad</button>
+      </div>
+    </div>
+    <!-- Subjects + tasks list -->
+    <div id="uni-subjects-list"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- ═══════════════════ VIEW: PROJECTS ══════════════════════════════════ -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div id="view-projects" class="hidden"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════ VIEW: SCHEDULE ══════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-schedule" class="hidden"></div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- ═══════════════════ VIEW: SHOPPING ══════════════════════════════════ -->
@@ -427,7 +518,48 @@
 
 </div><!-- end app-container -->
 
-<!-- ═══════════════════════════ MODALS ════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════ MODALS ══════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+
+<!-- Custom Expense Category modal -->
+<div id="modal-custom-exp" class="modal-overlay" style="display:none" onclick="closeCustomModals()">
+  <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:400px;border:1px solid rgba(231,76,60,0.3);padding:22px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-size:15px;font-weight:800;color:#E74C3C">🛡️ Nueva Categoría de Gasto</span>
+      <button onclick="closeCustomModals()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <!-- Tabs: new group vs new subcat -->
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button id="custom-exp-tab-group" onclick="customExpMode='group';renderCustomExpModal()" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(231,76,60,0.4);background:rgba(231,76,60,0.12);color:#E74C3C;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">+ Nuevo Grupo</button>
+      <button id="custom-exp-tab-sub" onclick="customExpMode='sub';renderCustomExpModal()" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);background:transparent;color:#555;cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif">+ Subcategoría</button>
+    </div>
+    <div id="custom-exp-modal-body"></div>
+  </div>
+</div>
+
+<!-- Custom Income Category modal -->
+<div id="modal-custom-inc" class="modal-overlay" style="display:none" onclick="closeCustomModals()">
+  <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:400px;border:1px solid rgba(46,204,113,0.3);padding:22px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-size:15px;font-weight:800;color:#2ECC71">💰 Nueva Fuente de Ingreso</span>
+      <button onclick="closeCustomModals()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:#777;margin-bottom:6px;font-weight:700">Nombre</div>
+      <input id="custom-inc-name" class="inp" placeholder="Ej: Beca, Arriendo, Honorarios..." style="font-size:15px;padding:12px"/>
+    </div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;color:#777;margin-bottom:6px;font-weight:700">Icono (emoji)</div>
+      <input id="custom-inc-icon" class="inp" maxlength="4" placeholder="💼" style="font-size:22px;text-align:center;padding:12px"/>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeCustomModals()" style="flex:1;padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="addCustomIncCat()" style="flex:2;padding:13px;border-radius:12px;border:none;background:#2ECC71;color:#000;cursor:pointer;font-weight:800;font-size:15px">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Expense modal -->
 <div id="modal-expense" class="modal-overlay" style="display:none" onclick="closeModal()">
   <div onclick="event.stopPropagation()" class="card modal-card" style="width:100%;max-width:400px;border:1px solid rgba(255,215,0,0.3);padding:22px">
@@ -524,6 +656,8 @@
     <button id="nav-expenses" class="nb" onclick="setView('expenses')"><span class="nb-icon" style="font-size:18px">🛡️</span><span>Gastos</span></button>
     <button id="nav-accounts" class="nb" onclick="setView('accounts')"><span class="nb-icon" style="font-size:18px">🏦</span><span>Cofres</span></button>
     <button id="nav-todos" class="nb" onclick="setView('todos')"><span class="nb-icon" style="font-size:18px">📋</span><span>Tareas</span></button>
+    <button id="nav-schedule" class="nb" onclick="setView('schedule')"><span class="nb-icon" style="font-size:18px">🗓️</span><span>Agenda</span></button>
+    <button id="nav-university" class="nb" onclick="setView('university')"><span class="nb-icon" style="font-size:18px">🎓</span><span>U</span></button>
     <button id="nav-projects" class="nb" onclick="setView('projects')"><span class="nb-icon" style="font-size:18px">🎯</span><span>Proyectos</span></button>
     <button id="nav-shopping" class="nb" onclick="setView('shopping')"><span class="nb-icon" style="font-size:18px">🛒</span><span>Compras</span></button>
     <button id="nav-history" class="nb" onclick="setView('history')"><span class="nb-icon" style="font-size:18px">📖</span><span>Historial</span></button>
@@ -532,10 +666,12 @@
 
 </div><!-- end #app -->
 
-<script src="constants.js?v=11"></script>
+<script src="constants.js?v=15"></script>
 <script src="avatar.js?v=11"></script>
 <script src="projects.js?v=14"></script>
-<script src="app.js?v=11"></script>
+<script src="university.js?v=3"></script>
+<script src="schedule.js?v=1"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
 

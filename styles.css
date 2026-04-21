@@ -358,3 +358,177 @@ button{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}
     padding-bottom:calc(94px + env(safe-area-inset-bottom));
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ── UNIVERSITY MODULE ──────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes uniSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes uniPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+
+.uni-sbj-card{
+  animation:uniSlideIn 0.3s ease-out both;
+  border-radius:16px;overflow:hidden;
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+.uni-sbj-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.uni-task-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.03);
+  transition:background 0.18s;
+}
+.uni-task-item:hover{background:rgba(255,255,255,0.02)}
+.uni-task-item:last-child{border-bottom:none}
+.uni-badge{
+  display:inline-flex;align-items:center;
+  padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;
+}
+.custom-cat-btn{
+  width:100%;padding:10px 18px;border-radius:10px;
+  border:1px dashed;background:transparent;cursor:pointer;
+  font-weight:700;font-size:12px;font-family:'Inter',sans-serif;
+  transition:opacity 0.2s;margin-top:8px;
+}
+.custom-cat-btn:hover{opacity:0.85}
+.custom-cat-btn:active{transform:scale(0.97)}
+.uni-count-badge{
+  animation:uniPulse 2s ease-in-out infinite;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;border-radius:9px;
+  font-size:10px;font-weight:800;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ── SCHEDULE / AGENDA MODULE ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes schdSlideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes schdEventIn{from{opacity:0;transform:scaleY(0.8);transform-origin:top}to{opacity:1;transform:scaleY(1)}}
+@keyframes schdPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0)}50%{box-shadow:0 0 0 4px rgba(255,215,0,0.08)}}
+
+/* ── Week picker strip ────────────────────────────────────────────────────── */
+.schd-week-strip{
+  display:flex;gap:5px;overflow-x:auto;padding-bottom:4px;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.schd-week-strip::-webkit-scrollbar{display:none}
+.schd-day-chip{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  flex-shrink:0;padding:7px 10px;border-radius:12px;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.07);background:rgba(0,0,0,0.2);
+  transition:all 0.2s;min-width:44px;
+}
+.schd-day-chip:active{transform:scale(0.94)}
+.schd-day-chip.today{border-color:rgba(255,215,0,0.3);background:rgba(255,215,0,0.06)}
+.schd-day-chip.selected{border-color:var(--accent,#FFD700);background:rgba(255,215,0,0.14);box-shadow:0 0 12px rgba(255,215,0,0.12)}
+.schd-day-chip-name{font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px}
+.schd-day-chip.today .schd-day-chip-name{color:#FFD700}
+.schd-day-chip.selected .schd-day-chip-name{color:#FFD700}
+.schd-day-chip-num{font-size:15px;font-weight:800;color:#aaa}
+.schd-day-chip.selected .schd-day-chip-num{color:#FFD700}
+.schd-day-chip-dot{width:5px;height:5px;border-radius:50%;background:var(--accent,#FFD700);opacity:0}
+.schd-day-chip-dot.has-events{opacity:1}
+
+/* ── Timeline ─────────────────────────────────────────────────────────────── */
+.schd-timeline{
+  position:relative;overflow-x:hidden;
+  /* We use a fixed left column for hour labels */
+}
+.schd-timeline-inner{
+  display:flex;flex-direction:column;gap:0;
+}
+.schd-hour-row{
+  display:flex;align-items:flex-start;min-height:52px;position:relative;
+}
+.schd-hour-label{
+  width:46px;flex-shrink:0;padding:2px 8px 0 0;
+  font-size:10px;font-weight:700;color:#333;text-align:right;
+  line-height:1;letter-spacing:0.3px;
+}
+.schd-hour-line{
+  flex:1;border-top:1px solid rgba(255,255,255,0.04);
+  position:relative;min-height:52px;
+}
+.schd-hour-row.current-hour .schd-hour-label{color:#FFD700}
+.schd-hour-row.current-hour .schd-hour-line{border-top-color:rgba(255,215,0,0.25)}
+
+/* Current time indicator */
+.schd-now-line{
+  position:absolute;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,#FFD700,transparent);
+  z-index:10;pointer-events:none;
+  box-shadow:0 0 8px rgba(255,215,0,0.5);
+}
+.schd-now-dot{
+  position:absolute;left:-4px;top:-4px;
+  width:10px;height:10px;border-radius:50%;
+  background:#FFD700;box-shadow:0 0 8px rgba(255,215,0,0.8);
+}
+
+/* ── Individual event blocks ──────────────────────────────────────────────── */
+.schd-events-layer{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  pointer-events:none;
+}
+.schd-event{
+  position:absolute;border-radius:9px;padding:5px 8px;
+  font-size:11px;font-weight:700;overflow:hidden;
+  cursor:pointer;pointer-events:all;
+  animation:schdEventIn 0.25s ease-out both;
+  transition:transform 0.15s,box-shadow 0.15s;
+  border:1px solid rgba(255,255,255,0.1);
+  backdrop-filter:blur(4px);
+}
+.schd-event:hover{transform:translateY(-1px) scale(1.01);box-shadow:0 4px 14px rgba(0,0,0,0.4);z-index:20}
+.schd-event:hover .schd-ev-edit-btn{opacity:1!important}
+.schd-event:active{transform:scale(0.97)}
+.schd-event.done{opacity:0.38;text-decoration:line-through;filter:grayscale(0.5)}
+.schd-event-title{
+  font-size:11px;font-weight:800;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 3px rgba(0,0,0,0.5);
+}
+.schd-event-time{
+  font-size:9px;color:rgba(255,255,255,0.65);margin-top:2px;
+}
+.schd-event-area{
+  font-size:9px;margin-top:2px;
+}
+
+/* ── Form section ─────────────────────────────────────────────────────────── */
+.schd-form{
+  animation:schdSlideIn 0.25s ease-out;
+  border:1px solid rgba(255,215,0,0.15);
+  border-radius:16px;padding:16px;
+  background:rgba(16,20,34,0.98);
+}
+
+/* ── General list view ────────────────────────────────────────────────────── */
+.schd-general-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:11px;
+  border:1px solid rgba(255,255,255,0.06);
+  background:rgba(0,0,0,0.15);
+  transition:background 0.18s;cursor:pointer;
+  animation:schdSlideIn 0.22s ease-out both;
+}
+.schd-general-item:hover{background:rgba(255,255,255,0.03)}
+.schd-general-item.done{opacity:0.4;text-decoration:line-through}
+
+/* ── Time block for general view ──────────────────────────────────────────── */
+.schd-time-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 7px;border-radius:6px;font-size:9px;font-weight:700;
+  background:rgba(0,0,0,0.3);color:#aaa;flex-shrink:0;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.schd-empty{
+  text-align:center;padding:32px 0;
+  animation:schdSlideIn 0.3s ease-out;
+}
+
+/* Responsive tweaks */
+@media(max-width:480px){
+  .schd-hour-label{width:38px;font-size:9px}
+  .schd-day-chip{padding:6px 7px;min-width:38px}
+  .schd-day-chip-num{font-size:13px}
+}

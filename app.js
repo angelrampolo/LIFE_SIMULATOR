@@ -66,10 +66,26 @@ let showFocusForm = false;
 let showComparador = false;
 let compareMo2 = "";
 
+// ── University state ─────────────────────────────────────────────────────────
+let showUniSbjForm = false;
+let showUniTaskForm = false;
+let uniTaskSbj = null;      // subject id being used for new task
+let uniSbjFilter = "all";   // "all" or subject id
+let uniSbjColor = "#3498DB"; // color selected in subject form
+
+// ── Custom categories state ───────────────────────────────────────────────────
+let customExpMode = "group"; // "group" or "sub"
+let customExpGroupSel = "";  // group id selected for adding subcat
+
+// ── Effective category lists (base + custom) ─────────────────────────────────
+function getEffectiveIC() { return [...IC, ...((typeof data !== 'undefined' && data && data.customIncCats) || [])]; }
+function getEffectiveEG() { return [...EG, ...((typeof data !== 'undefined' && data && data.customExpGroups) || [])]; }
+
 // ── Utils ────────────────────────────────────────────────────────────────────
 function fmt(n) { return "$" + (n || 0).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fS(n) { return "$" + (n || 0).toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) }
-function todayStr() { return new Date().toISOString().slice(0, 10) }
+function nowEC() { return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Guayaquil" })); }
+function todayStr() { const d = nowEC(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function dateToStr(d) { return d.toISOString().slice(0, 10) }
 function $(id) { return document.getElementById(id) }
 
@@ -80,7 +96,13 @@ function mkInit() {
     avatar: { hair: "messy", hairColor: "brown", skin: "medium", eyeColor: "brown", outfit: "tshirt", outfitColor: "blue", accessory: "none" },
     shopList: [],
     reminders: [],
-    projects: []
+    projects: [],
+    subjects: [],
+    uniTasks: [],
+    customExpGroups: [],
+    customIncCats: [],
+    schedule: [],
+    customAreas: []
   };
   MS.forEach(m => { b.months[m] = { income: {}, expenses: {}, accounts: {} }; });
   return b;
@@ -209,6 +231,12 @@ function ensureData(d) {
   fixArr('wishlist');
   fixArr('subs');
   fixArr('projects');
+  fixArr('subjects');
+  fixArr('uniTasks');
+  fixArr('customExpGroups');
+  fixArr('customIncCats');
+  fixArr('schedule');
+  fixArr('customAreas');
   // Fix nested arrays inside projects (milestones, columns)
   (d.projects || []).forEach(p => {
     if (!p.milestones) p.milestones = [];
@@ -260,6 +288,15 @@ function ensureData(d) {
   });
   // focusChallenge can be null — Firebase may delete it, which is fine
   if (d.focusChallenge === undefined) d.focusChallenge = null;
+  // Fix nested cats arrays inside customExpGroups
+  (d.customExpGroups || []).forEach(g => {
+    if (!g.cats) g.cats = [];
+    else if (!Array.isArray(g.cats)) {
+      const arr = [];
+      Object.keys(g.cats).forEach(k => { if (g.cats[k] && typeof g.cats[k] === 'object') arr.push(g.cats[k]); });
+      g.cats = arr;
+    }
+  });
   return d;
 }
 
@@ -605,6 +642,22 @@ function toggleTodo(id) {
     data.stats[todo.area] = Math.max(0, (data.stats[todo.area] || 0) - todo.xp);
     todo.done = false;
   }
+  // Sync with linked university task (bidirectional)
+  if (todo.uniTaskId) {
+    const ut = (data.uniTasks || []).find(x => x.id === todo.uniTaskId);
+    if (ut && ut.done !== todo.done) {
+      ut.done = todo.done;
+      if (ut.reminderId) {
+        const rem = (data.reminders || []).find(x => x.id === ut.reminderId);
+        if (rem) rem.done = todo.done;
+      }
+    }
+  }
+  // Sync with linked schedule event (bidirectional)
+  if (todo.scheduleEventId) {
+    const sev = (data.schedule || []).find(e => e.id === todo.scheduleEventId);
+    if (sev && sev.done !== todo.done) sev.done = todo.done;
+  }
   schedSave(); checkQuests(); render();
 }
 function deleteTodo(id) {
@@ -832,9 +885,11 @@ function render() {
   $("view-expenses").classList.toggle("hidden", view !== "expenses");
   $("view-accounts").classList.toggle("hidden", view !== "accounts");
   $("view-todos").classList.toggle("hidden", view !== "todos");
+  $("view-university").classList.toggle("hidden", view !== "university");
   $("view-projects").classList.toggle("hidden", view !== "projects");
   $("view-shopping").classList.toggle("hidden", view !== "shopping");
   $("view-history").classList.toggle("hidden", view !== "history");
+  $("view-schedule").classList.toggle("hidden", view !== "schedule");
 
   // ── Dashboard ──
   if (view === "dashboard") { renderDashboard(ct, rank); renderReminders(); renderWeeklySummary(); renderTrendChart(); renderHabitsPreview(); renderJournalCard(); renderDailyQuote(); renderFocusChallenge(); if (typeof pjRenderDashWidget === "function") pjRenderDashWidget(); }
@@ -842,9 +897,11 @@ function render() {
   if (view === "expenses") { renderExpenses(ct); renderRecurring(); renderSubs(); }
   if (view === "accounts") { renderAccounts(ct, startT, monthStarts); renderGoals(); renderDebts(); }
   if (view === "todos") renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDisplay);
+  if (view === "university") renderUniversity();
   if (view === "projects" && typeof renderProjects === "function") renderProjects();
   if (view === "shopping") { renderShopping(); renderWishlist(); }
   if (view === "history") { renderHistory(); renderComparador(); }
+  if (view === "schedule" && typeof renderSchedule === "function") renderSchedule();
   if (showSettings) renderSettingsExtras();
 
   // Apply theme
@@ -887,7 +944,7 @@ function renderDashboard(ct, rank) {
     ebEl.classList.remove("hidden");
     $("dash-exp-total").textContent = fS(ct.exp) + " total";
     let ebHTML = "";
-    EG.forEach(g => {
+    getEffectiveEG().forEach(g => {
       const gt = Object.values(data.months[month]?.expenses?.[g.id] || {}).reduce((a, b) => a + b, 0);
       if (!gt) return;
       const p = (gt / ct.exp) * 100;
@@ -926,7 +983,7 @@ function renderIncome(ct) {
   $("inc-total").textContent = fS(ct.inc);
   $("inc-month").textContent = month + " — Toca una fuente para registrar";
   let html = "";
-  IC.forEach(c => {
+  getEffectiveIC().forEach(c => {
     const total = data.months[month]?.income?.[c.id] || 0;
     const entries = (data.hist || []).filter(h => h.type === "income" && h.catId === c.id && h.month === month);
     let entriesHTML = "";
@@ -965,13 +1022,13 @@ function renderExpenses(ct) {
   $("exp-total").textContent = fS(ct.exp);
   $("exp-month").textContent = month + " — Toca una categoría para añadir";
   let html = "";
-  EG.forEach(g => {
+  getEffectiveEG().forEach(g => {
     const gt = Object.values(data.months[month]?.expenses?.[g.id] || {}).reduce((a, b) => a + b, 0);
     const open = expGr === g.id;
     let catsHTML = "";
     if (open) {
       catsHTML = `<div style="padding:0 13px 13px;display:flex;flex-direction:column;gap:7px">`;
-      g.cats.forEach(c2 => {
+      (g.cats || []).forEach(c2 => {
         const cv = data.months[month]?.expenses?.[g.id]?.[c2.id] || 0;
         catsHTML += `<div onclick="openExpenseModal('${g.id}','${c2.id}',{name:'${c2.name}'},'${g.name}')" style="display:flex;align-items:center;padding:10px 12px;background:rgba(0,0,0,0.3);border-radius:10px;cursor:pointer;border-left:3px solid ${g.color}">
           <span style="flex:1;font-size:13px;color:#aaa">${c2.name}</span>
@@ -1150,11 +1207,50 @@ function renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDi
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <span class="pill" style="color:${ar.c};border-color:${ar.c}28;background:${ar.c}12">${ar.icon} ${ar.n}</span>
           <span class="pill" style="color:${df.c};border-color:${df.c}28;background:${df.c}12">${df.i} +${todo.xp}XP</span>
+          ${todo.scheduleEventId ? '<span class="pill" style="color:#FFD700;border-color:rgba(255,215,0,0.2);background:rgba(255,215,0,0.08)">🗓️ Agenda</span>' : ''}
         </div>
       </div>
       <button onclick="deleteTodo('${todo.id}')" style="background:transparent;border:none;color:#3a3a4a;cursor:pointer;font-size:15px;padding:5px;flex-shrink:0">🗑️</button>
     </div>`;
   });
+
+  // ── Actividades de Agenda para este día ──────────────────────────────────
+  const _daySchd = (data.schedule || [])
+    .filter(e => e.date === todoDate)
+    .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
+
+  if (_daySchd.length > 0) {
+    // If there were no regular todos, clear the empty-state message
+    if (filteredTodos.length === 0) listHTML = '';
+
+    listHTML += `<div style="${filteredTodos.length > 0 ? 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);' : ''}">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
+        <span style="font-size:13px">🗓️</span>
+        <span style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">Actividades de Agenda</span>
+        <span style="font-size:9px;color:#333;font-weight:700">(${_daySchd.filter(e=>e.done).length}/${_daySchd.length})</span>
+      </div>`;
+
+    _daySchd.forEach(ev => {
+      const _allAreas = typeof getEffectiveAreas === 'function' ? getEffectiveAreas() : AREAS;
+      const _ar = _allAreas.find(a => a.id === ev.area) || AREAS[0];
+      const _colors = typeof schdGetAreaColors === 'function' ? schdGetAreaColors(ev.area) : { bg: 'rgba(52,152,219,0.78)', border: '#3498DB' };
+      const _arColor = _ar.c || _colors.border;
+      const _timeStr = typeof schdFmt === 'function' ? `${schdFmt(ev.startTime)} – ${schdFmt(ev.endTime)}` : `${ev.startTime}–${ev.endTime}`;
+      listHTML += `<div style="display:flex;align-items:center;gap:11px;padding:10px 12px;background:${ev.done ? 'rgba(46,204,113,0.04)' : 'rgba(0,0,0,0.18)'};border-radius:12px;border:1px solid ${ev.done ? 'rgba(46,204,113,0.18)' : _colors.border + '22'};border-left:3px solid ${_colors.border};margin-bottom:5px;transition:0.2s">
+        <div onclick="if(typeof schdToggleDone==='function'){schdToggleDone('${ev.id}');render();}" style="width:25px;height:25px;border-radius:7px;border:2px solid ${ev.done ? '#2ECC71' : _colors.border + '88'};background:${ev.done ? 'rgba(46,204,113,0.18)' : 'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#2ECC71;flex-shrink:0;transition:0.2s">${ev.done ? '✓' : ''}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;color:${ev.done ? '#555' : '#eee'};text-decoration:${ev.done ? 'line-through' : 'none'};font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.title}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+            <span class="pill" style="color:${_arColor};border-color:${_arColor}28;background:${_arColor}12">${_ar.icon} ${_ar.n || _ar.name}</span>
+            <span style="font-size:9px;color:#555;font-weight:700;background:rgba(0,0,0,0.25);padding:2px 6px;border-radius:5px">⏰ ${_timeStr}</span>
+          </div>
+        </div>
+        <span class="pill" style="color:#FFD700;border-color:rgba(255,215,0,0.2);background:rgba(255,215,0,0.08);flex-shrink:0;font-size:9px">🗓️</span>
+      </div>`;
+    });
+    listHTML += `</div>`;
+  }
+
   $("todo-list").innerHTML = listHTML;
 }
 
@@ -1226,6 +1322,67 @@ function renderTodosGeneral() {
       });
     });
   }
+
+  // ── Actividades de Agenda (General view) ─────────────────────────────────
+  const _allSchd = (data.schedule || [])
+    .filter(e => areaFilter === 'all' || e.area === areaFilter)
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime || '').localeCompare(b.startTime || ''));
+
+  if (_allSchd.length > 0) {
+    const _today = todayStr();
+    // Group by date
+    const _schdGroups = {};
+    _allSchd.forEach(ev => {
+      if (!_schdGroups[ev.date]) _schdGroups[ev.date] = [];
+      _schdGroups[ev.date].push(ev);
+    });
+
+    // Append a section header only if it's needed
+    if (filteredPending.length > 0) {
+      listHTML += `<div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.05)"></div>`;
+    }
+    listHTML += `<div style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px">
+      <span style="font-size:13px">🗓️</span><span>Actividades de Agenda</span>
+      <span style="color:#333">(${_allSchd.filter(e=>e.done).length}/${_allSchd.length})</span>
+    </div>`;
+
+    Object.keys(_schdGroups).sort().forEach(dateKey => {
+      const evs = _schdGroups[dateKey];
+      const _d = new Date(dateKey + 'T12:00:00');
+      const _isToday = dateKey === _today;
+      const _isPast = dateKey < _today;
+      const _dateLabel = _isToday ? '📅 Hoy' : _d.toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long' });
+      const _dateColor = _isToday ? '#FF6B35' : _isPast ? '#E74C3C' : '#888';
+
+      listHTML += `<div style="font-size:11px;font-weight:700;color:${_dateColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:4px 8px;background:${_dateColor}0e;border-radius:6px;border-left:3px solid ${_dateColor};display:inline-block">${_dateLabel} <span style="font-size:10px;color:#555;font-weight:400">(${evs.length})</span></div>`;
+
+      evs.forEach(ev => {
+        const _allAreas = typeof getEffectiveAreas === 'function' ? getEffectiveAreas() : AREAS;
+        const _ar = _allAreas.find(a => a.id === ev.area) || AREAS[0];
+        const _colors = typeof schdGetAreaColors === 'function' ? schdGetAreaColors(ev.area) : { border: '#3498DB' };
+        const _arColor = _ar.c || _colors.border;
+        const _hasTime = ev.startTime && ev.endTime;
+        const _timeStr = _hasTime && typeof schdFmt === 'function' ? `${schdFmt(ev.startTime)} – ${schdFmt(ev.endTime)}` : '';
+        const _priorityColors = { high: '#E74C3C', medium: '#F39C12', low: '#2ECC71' };
+        const _priorityLabels = { high: '🔴 Alta', medium: '🟡 Media', low: '🟢 Baja' };
+        const _prioColor = ev.priority ? _priorityColors[ev.priority] : null;
+
+        listHTML += `<div style="display:flex;align-items:center;gap:11px;padding:10px 12px;background:${ev.done ? 'rgba(46,204,113,0.04)' : 'rgba(0,0,0,0.18)'};border-radius:12px;border:1px solid ${ev.done ? 'rgba(46,204,113,0.18)' : _colors.border + '22'};border-left:3px solid ${_colors.border};margin-bottom:6px;transition:0.2s">
+          <div onclick="if(typeof schdToggleDone==='function'){schdToggleDone('${ev.id}');render();}" style="width:25px;height:25px;border-radius:7px;border:2px solid ${ev.done ? '#2ECC71' : _colors.border + '88'};background:${ev.done ? 'rgba(46,204,113,0.18)' : 'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#2ECC71;flex-shrink:0;transition:0.2s">${ev.done ? '✓' : ''}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:${ev.done ? '#555' : '#eee'};text-decoration:${ev.done ? 'line-through' : 'none'};font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.title}</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+              <span class="pill" style="color:${_arColor};border-color:${_arColor}28;background:${_arColor}12">${_ar.icon} ${_ar.n || _ar.name}</span>
+              ${_timeStr ? `<span style="font-size:9px;color:#555;font-weight:700;background:rgba(0,0,0,0.25);padding:2px 6px;border-radius:5px">⏰ ${_timeStr}</span>` : ''}
+              ${_prioColor ? `<span style="font-size:9px;color:${_prioColor};font-weight:700">${_priorityLabels[ev.priority]}</span>` : ''}
+            </div>
+          </div>
+          <span class="pill" style="color:#FFD700;border-color:rgba(255,215,0,0.2);background:rgba(255,215,0,0.08);flex-shrink:0;font-size:9px">🗓️</span>
+        </div>`;
+      });
+    });
+  }
+
   $("todo-list").innerHTML = listHTML;
 }
 
@@ -1700,7 +1857,7 @@ function exportPDF(){
   const totalTasks=(data.todos||[]).length;
   const habitsDone=(data.habits||[]).filter(h=>h.history[todayStr()]).length;
   let expBreakdown="";
-  EG.forEach(g=>{
+  getEffectiveEG().forEach(g=>{
     const gt=Object.values(data.months[month]?.expenses?.[g.id]||{}).reduce((a,b)=>a+b,0);
     if(gt>0) expBreakdown+=`<tr><td>${g.icon} ${g.name}</td><td style="text-align:right;color:#E74C3C">$${gt.toLocaleString()}</td></tr>`;
   });
@@ -1915,7 +2072,7 @@ function renderRecurring(){
   if(pendAmt>0) html+=`<div style="padding:6px 10px;background:rgba(231,76,60,0.08);border-radius:8px;border:1px solid rgba(231,76,60,0.18);margin-bottom:10px;font-size:11px;color:#E74C3C;font-weight:600">⚠️ ${fS(pendAmt)} en gastos fijos pendientes este mes</div>`;
   if(showRecurForm){
     let grpHTML="";
-    EG.forEach(g=>{let catsHTML="";g.cats.forEach(c=>{
+    getEffectiveEG().forEach(g=>{let catsHTML="";(g.cats || []).forEach(c=>{
       const sel=recurGroup===g.id&&recurCat===c.id;
       catsHTML+=`<button onclick="recurGroup='${g.id}';recurCat='${c.id}';render()" style="padding:4px 8px;border-radius:6px;border:1px solid ${sel?g.color+"88":"rgba(255,255,255,0.06)"};background:${sel?g.color+"18":"transparent"};color:${sel?g.color:"#555"};font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap">${c.name}</button>`;
     });grpHTML+=`<div style="margin-bottom:6px"><div style="font-size:10px;color:${g.color};margin-bottom:4px">${g.icon} ${g.name}</div><div style="display:flex;gap:4px;flex-wrap:wrap">${catsHTML}</div></div>`;});
@@ -2349,7 +2506,7 @@ function renderComparador(){
   let moOpts="";MS.forEach(m=>{moOpts+=`<option value="${m}" ${m===compareMo2?"selected":""}>${m}</option>`;});
 
   let catComp="";
-  EG.forEach(g=>{
+  getEffectiveEG().forEach(g=>{
     const e1=Object.values(data.months[m1]?.expenses?.[g.id]||{}).reduce((a,b)=>a+b,0);
     const e2=Object.values(data.months[m2]?.expenses?.[g.id]||{}).reduce((a,b)=>a+b,0);
     if(e1>0||e2>0){
@@ -2529,7 +2686,7 @@ function renderFocusChallenge(){
 
   if(showFocusForm&&!fc){
     let catOpts=`<option value="all">🚫 Todo (no gastar nada)</option>`;
-    EG.forEach(g=>{catOpts+=`<option value="${g.id}">${g.icon} ${g.name}</option>`;});
+    getEffectiveEG().forEach(g=>{catOpts+=`<option value="${g.id}">${g.icon} ${g.name}</option>`;});
     el.innerHTML=`<div style="font-size:13px;font-weight:700;color:#00BCD4;margin-bottom:10px">⚡ Nuevo Reto "No Gastes"</div>
     <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:10px">
       <div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">NO GASTAR EN:</div>
