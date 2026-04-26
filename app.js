@@ -862,6 +862,10 @@ function render() {
 
   // ── Avatar ──
   $("avatar-container").innerHTML = renderAvatar(data.avatar, level, autoMood, 72, aFrame);
+  const avCt = $("avatar-container");
+  avCt.style.borderColor = rank.c + '55';
+  avCt.style.background = `radial-gradient(ellipse at 55% 35%, ${rank.c}14 0%, rgba(0,0,0,0.55) 70%)`;
+  avCt.style.boxShadow = `0 0 0 1px ${rank.c}25, 0 4px 24px ${rank.c}1e`;
 
   // ── Header info ──
   $("rank-badge").textContent = rank.b + " " + rank.n;

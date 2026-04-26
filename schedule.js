@@ -129,51 +129,55 @@ function renderSchedule() {
 
   el.innerHTML = `
   <!-- ── HEADER CARD ── -->
-  <div style="background:linear-gradient(135deg,rgba(20,26,48,1),rgba(10,13,30,1));border:1px solid rgba(255,215,0,0.12);border-radius:18px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden">
-    <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(255,215,0,0.06),transparent 70%);pointer-events:none"></div>
+  <div style="background:linear-gradient(145deg,rgba(16,21,40,1),rgba(9,12,24,1));border:1px solid rgba(255,215,0,0.1);border-radius:20px;padding:18px 16px 16px;margin-bottom:10px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:-28px;right:-24px;width:150px;height:150px;background:radial-gradient(circle,rgba(255,215,0,0.06),transparent 65%);pointer-events:none"></div>
+    <div style="position:absolute;bottom:-44px;left:-18px;width:120px;height:120px;background:radial-gradient(circle,rgba(52,152,219,0.04),transparent 68%);pointer-events:none"></div>
 
     <!-- Top row: title + nav -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
       <div>
-        <div style="font-size:10px;color:rgba(255,215,0,0.5);text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:5px">🗓️ &nbsp;Agenda</div>
-        <div style="font-size:20px;font-weight:800;color:#fff;line-height:1.1">${dateLabel}</div>
-        <div style="font-size:11px;color:#444;margin-top:3px">${scheduleDate}</div>
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+          <div style="width:3px;height:13px;background:linear-gradient(180deg,#FFD700,rgba(255,165,0,0.4));border-radius:2px;flex-shrink:0"></div>
+          <div style="font-size:9px;color:rgba(255,215,0,0.5);text-transform:uppercase;letter-spacing:2.5px;font-weight:800">Agenda</div>
+        </div>
+        <div style="font-size:${isToday?'28':'22'}px;font-weight:900;color:#fff;line-height:1;letter-spacing:-0.3px">${dateLabel}</div>
+        <div style="font-size:11px;color:${isToday?'rgba(255,215,0,0.35)':'#3a3a52'};margin-top:5px;font-weight:600">${scheduleDate}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <button onclick="schdOffsetDate(-1)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;width:36px;height:36px;border-radius:11px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:0.2s">◀</button>
-        <button onclick="schdGoToday()" style="padding:6px 14px;border-radius:11px;border:1px solid ${isToday?"rgba(255,215,0,0.45)":"rgba(255,255,255,0.1)"};background:${isToday?"rgba(255,215,0,0.1)":"transparent"};color:${isToday?"#FFD700":"#777"};cursor:pointer;font-weight:700;font-size:11px;font-family:'Inter',sans-serif;transition:0.2s">Hoy</button>
-        <button onclick="schdOffsetDate(1)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;width:36px;height:36px;border-radius:11px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:0.2s">▶</button>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+        <button onclick="schdOffsetDate(-1)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#777;width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center">◀</button>
+        <button onclick="schdGoToday()" style="padding:6px 13px;border-radius:10px;border:1px solid ${isToday?"rgba(255,215,0,0.5)":"rgba(255,255,255,0.08)"};background:${isToday?"rgba(255,215,0,0.12)":"transparent"};color:${isToday?"#FFD700":"#555"};cursor:pointer;font-weight:800;font-size:11px;font-family:'Inter',sans-serif">Hoy</button>
+        <button onclick="schdOffsetDate(1)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#777;width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center">▶</button>
       </div>
     </div>
 
     <!-- Week strip -->
-    <div class="schd-week-strip" style="margin-bottom:${dayEvents.length>0?'14':'0'}px">${schdBuildWeekStrip(today)}</div>
+    <div class="schd-week-strip" style="margin-bottom:${dayEvents.length>0?'16':'0'}px">${schdBuildWeekStrip(today)}</div>
 
     ${dayEvents.length>0 ? `
     <!-- Stats row -->
-    <div style="display:flex;gap:8px">
-      <div style="flex:1;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:11px;padding:9px 12px;text-align:center">
-        <div style="font-size:18px;font-weight:800;color:#FFD700">${dayEvents.length}</div>
-        <div style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-top:1px">Actividades</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:${pct>0?'12':'0'}px">
+      <div style="background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.12);border-radius:14px;padding:11px 10px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#FFD700;line-height:1">${dayEvents.length}</div>
+        <div style="font-size:8px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;margin-top:4px">Tareas</div>
       </div>
-      <div style="flex:1;background:rgba(46,204,113,0.06);border:1px solid rgba(46,204,113,0.14);border-radius:11px;padding:9px 12px;text-align:center">
-        <div style="font-size:18px;font-weight:800;color:#2ECC71">${totalDone}</div>
-        <div style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-top:1px">Completadas</div>
+      <div style="background:rgba(46,204,113,0.05);border:1px solid rgba(46,204,113,0.12);border-radius:14px;padding:11px 10px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#2ECC71;line-height:1">${totalDone}</div>
+        <div style="font-size:8px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;margin-top:4px">Completadas</div>
       </div>
-      <div style="flex:1;background:rgba(52,152,219,0.06);border:1px solid rgba(52,152,219,0.14);border-radius:11px;padding:9px 12px;text-align:center">
-        <div style="font-size:18px;font-weight:800;color:#3498DB">${totalHours}h</div>
-        <div style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-top:1px">Planificadas</div>
+      <div style="background:rgba(52,152,219,0.05);border:1px solid rgba(52,152,219,0.12);border-radius:14px;padding:11px 10px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:#3498DB;line-height:1">${totalHours}<span style="font-size:12px;font-weight:700">h</span></div>
+        <div style="font-size:8px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;margin-top:4px">Planeadas</div>
       </div>
     </div>
-    ${pct>0?`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:9px;color:#444;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px"><span>Progreso</span><span style="color:#FFD700">${pct}%</span></div><div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2ECC71,#FFD700);border-radius:3px;transition:width 0.5s"></div></div></div>`:""}
+    ${pct>0?`<div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.04);border-radius:11px;padding:10px 13px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.8px">Progreso del día</span><span style="font-size:13px;font-weight:900;color:${pct>=100?'#2ECC71':'#FFD700'}">${pct}%</span></div><div style="height:6px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#3498DB,#2ECC71,#FFD700);border-radius:4px;transition:width 0.6s ease-out"></div></div></div>`:""}
     ` : ""}
   </div>
 
   <!-- ── VIEW TABS + ADD BUTTON ── -->
   <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-    <button onclick="scheduleViewMode='timeline';renderSchedule()" style="flex:1;padding:9px;border-radius:12px;border:1px solid ${scheduleViewMode==="timeline"?"rgba(255,215,0,0.4)":"rgba(255,255,255,0.07)"};background:${scheduleViewMode==="timeline"?"rgba(255,215,0,0.1)":"rgba(0,0,0,0.2)"};color:${scheduleViewMode==="timeline"?"#FFD700":"#555"};cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif;transition:0.2s">⏱️ Horario</button>
-    <button onclick="scheduleViewMode='general';renderSchedule()" style="flex:1;padding:9px;border-radius:12px;border:1px solid ${scheduleViewMode==="general"?"rgba(255,107,53,0.4)":"rgba(255,255,255,0.07)"};background:${scheduleViewMode==="general"?"rgba(255,107,53,0.1)":"rgba(0,0,0,0.2)"};color:${scheduleViewMode==="general"?"#FF6B35":"#555"};cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif;transition:0.2s">📋 General</button>
-    <button onclick="schdOpenForm()" style="padding:9px 16px;border-radius:12px;border:none;background:linear-gradient(135deg,#FFD700,#F39C12);color:#000;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 4px 14px rgba(255,215,0,0.25);transition:0.2s;white-space:nowrap">+ Nueva</button>
+    <button onclick="scheduleViewMode='timeline';renderSchedule()" style="flex:1;padding:10px;border-radius:13px;border:1px solid ${scheduleViewMode==="timeline"?"rgba(255,215,0,0.4)":"rgba(255,255,255,0.06)"};background:${scheduleViewMode==="timeline"?"rgba(255,215,0,0.1)":"rgba(0,0,0,0.22)"};color:${scheduleViewMode==="timeline"?"#FFD700":"#444"};cursor:pointer;font-weight:800;font-size:12px;font-family:'Inter',sans-serif;transition:0.2s">⏱️ Horario</button>
+    <button onclick="scheduleViewMode='general';renderSchedule()" style="flex:1;padding:10px;border-radius:13px;border:1px solid ${scheduleViewMode==="general"?"rgba(255,107,53,0.4)":"rgba(255,255,255,0.06)"};background:${scheduleViewMode==="general"?"rgba(255,107,53,0.1)":"rgba(0,0,0,0.22)"};color:${scheduleViewMode==="general"?"#FF6B35":"#444"};cursor:pointer;font-weight:800;font-size:12px;font-family:'Inter',sans-serif;transition:0.2s">📋 General</button>
+    <button onclick="schdOpenForm()" style="padding:10px 18px;border-radius:13px;border:none;background:linear-gradient(135deg,#FFD700,#F39C12);color:#000;cursor:pointer;font-weight:900;font-size:13px;box-shadow:0 4px 16px rgba(255,215,0,0.28);white-space:nowrap">+ Nueva</button>
   </div>
 
   <!-- ── FORM ── -->
@@ -181,7 +185,7 @@ function renderSchedule() {
   ${showNewAreaForm ? schdRenderNewAreaModal() : ""}
 
   <!-- ── CONTENT ── -->
-  <div style="background:rgba(12,16,28,0.98);border:1px solid rgba(255,255,255,0.06);border-radius:18px;overflow:hidden">
+  <div style="background:rgba(10,13,24,0.98);border:1px solid rgba(255,255,255,0.05);border-radius:18px;overflow:hidden">
     ${scheduleViewMode==="timeline" ? schdRenderTimeline(dayEvents) : schdRenderGeneral(dayEvents)}
   </div>
   `;
@@ -301,13 +305,13 @@ function schdRenderTimeline(events) {
     const isCur=isToday&&nowEC.getHours()===h;
     // Hour line
     gridLines+=`<div style="position:absolute;left:0;right:0;top:${top}px;display:flex;align-items:flex-start;pointer-events:none">
-      <div style="width:${GUTTER}px;flex-shrink:0;font-size:9px;font-weight:700;color:${isCur?"rgba(255,215,0,0.6)":"rgba(255,255,255,0.15)"};text-align:right;padding-right:10px;padding-top:2px;line-height:1;letter-spacing:0.3px;transition:0.3s">${h===0?"12am":h<12?`${h}am`:h===12?"12pm":`${h-12}pm`}</div>
-      <div style="flex:1;border-top:1px solid ${isCur?"rgba(255,215,0,0.15)":"rgba(255,255,255,0.04)"};margin-top:6px"></div>
+      <div style="width:${GUTTER}px;flex-shrink:0;font-size:9px;font-weight:${isCur?'800':'600'};color:${isCur?"rgba(255,215,0,0.7)":"rgba(255,255,255,0.2)"};text-align:right;padding-right:10px;padding-top:2px;line-height:1;letter-spacing:0.3px;transition:0.3s">${h===0?"12am":h<12?`${h}am`:h===12?"12pm":`${h-12}pm`}</div>
+      <div style="flex:1;border-top:1px solid ${isCur?"rgba(255,215,0,0.18)":"rgba(255,255,255,0.05)"};margin-top:6px"></div>
     </div>`;
     // 30-min divider
     if(h<maxHour){
       const halfTop=top+ROW_H/2;
-      gridLines+=`<div style="position:absolute;left:${GUTTER}px;right:0;top:${halfTop}px;border-top:1px dashed rgba(255,255,255,0.025);pointer-events:none"></div>`;
+      gridLines+=`<div style="position:absolute;left:${GUTTER}px;right:0;top:${halfTop}px;border-top:1px dashed rgba(255,255,255,0.03);pointer-events:none"></div>`;
     }
   }
 
@@ -327,33 +331,46 @@ function schdRenderTimeline(events) {
     const colors=schdGetAreaColors(ev.area);
     const allAreas=getEffectiveAreas();
     const areaInfo=allAreas.find(a=>a.id===ev.area)||AREAS[0];
-    const short=height<36;
-    const medium=height>=36&&height<64;
+    const short=height<34;
+    const tall=height>=80;
 
     const isPendingDel = schdPendingDelete===ev.id;
+    const evBg = isPendingDel ? 'rgba(231,76,60,0.2)' :
+      `linear-gradient(160deg,${colors.bg.replace('0.78','0.65')} 0%,${colors.bg.replace('0.78','0.38')} 100%)`;
+
     evBlocks+=`<div class="schd-event ${ev.done?"done":""}${isPendingDel?' schd-pending-del':''}"
         onclick="${isPendingDel?'':`schdToggleDone('${ev.id}')`}"
         oncontextmenu="event.preventDefault();schdOpenEdit('${ev.id}')"
         style="position:absolute;top:${top}px;height:${height}px;left:${colLeft};width:${colW};
-          background:${isPendingDel?'rgba(231,76,60,0.25)':`linear-gradient(135deg,${colors.bg} 0%,${colors.bg.replace('0.78','0.65')} 100%)`};
-          border:1px solid ${isPendingDel?'rgba(231,76,60,0.6)':colors.border+'40'};
-          box-shadow:0 2px 12px ${colors.glow},inset 0 1px 0 rgba(255,255,255,0.08);
+          background:${evBg};
           border-left:3px solid ${isPendingDel?'#E74C3C':colors.border};
-          backdrop-filter:blur(8px)">
+          border-top:1px solid ${isPendingDel?'rgba(231,76,60,0.3)':colors.border+'22'};
+          border-right:1px solid rgba(255,255,255,0.03);
+          border-bottom:1px solid rgba(255,255,255,0.03);
+          border-radius:0 8px 8px 0;
+          box-shadow:0 2px 10px ${colors.glow};
+          backdrop-filter:blur(10px);overflow:hidden">
       ${isPendingDel ? `
-      <div style="display:flex;align-items:center;justify-content:center;height:100%;gap:6px;padding:0 6px">
-        <div style="font-size:11px;color:#E74C3C;font-weight:800">¿Eliminar?</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;gap:6px;padding:0 8px">
+        <div style="font-size:10px;color:#E74C3C;font-weight:800">¿Eliminar?</div>
         <button onclick="event.stopPropagation();schdDelete('${ev.id}')" style="padding:3px 10px;border-radius:6px;border:none;background:#E74C3C;color:#fff;cursor:pointer;font-size:10px;font-weight:800;font-family:'Inter',sans-serif">Sí</button>
-        <button onclick="event.stopPropagation();schdPendingDelete=null;_schdSkipAutoScroll=true;renderSchedule()" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#aaa;cursor:pointer;font-size:10px;font-weight:700;font-family:'Inter',sans-serif">No</button>
+        <button onclick="event.stopPropagation();schdPendingDelete=null;_schdSkipAutoScroll=true;renderSchedule()" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#aaa;cursor:pointer;font-size:10px;font-weight:700;font-family:'Inter',sans-serif">No</button>
       </div>
       ` : `
-      <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;padding:${short?"2px 5px":"5px 7px"}">
-        <div style="font-size:${short?"10":"11"}px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,0.6);line-height:1.2">${ev.done?"✅ ":""}${ev.title}</div>
-        ${!short?`<div style="font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px;white-space:nowrap">${schdFmt(ev.startTime)} — ${schdFmt(ev.endTime)}</div>`:""}
-        ${medium||!short?`<div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px">${areaInfo.icon}${ev.priority?(ev.priority==='high'?' 🔴':ev.priority==='medium'?' 🟡':' 🟢'):''}</div>`:""}
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${colors.border}55,transparent);pointer-events:none"></div>
+      <div style="padding:${short?'3px 24px 3px 8px':'6px 24px 5px 9px'};height:100%;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box">
+        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;min-width:0">
+          ${ev.done?`<span style="font-size:9px;color:#2ECC71;flex-shrink:0;line-height:1">✓</span>`:''}
+          <span style="font-size:${short?'10':'11'}px;font-weight:800;color:${ev.done?'rgba(255,255,255,0.45)':'#fff'};text-decoration:${ev.done?'line-through':'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.5);line-height:1.2">${ev.title}</span>
+        </div>
+        ${!short?`<div style="margin-top:3px;display:inline-flex;align-items:center;padding:1px 5px;background:rgba(0,0,0,0.28);border-radius:4px;align-self:flex-start;flex-shrink:0"><span style="font-size:8px;font-weight:600;color:rgba(255,255,255,0.55)">${schdFmt(ev.startTime)}–${schdFmt(ev.endTime)}</span></div>`:''}
+        ${tall?`<div style="margin-top:4px;display:flex;align-items:center;gap:3px;flex-shrink:0"><span style="font-size:11px;line-height:1">${areaInfo.icon}</span>${ev.priority?`<span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,0.22);color:${ev.priority==='high'?'#E74C3C':ev.priority==='medium'?'#F39C12':'#2ECC71'}">${ev.priority==='high'?'Alta':ev.priority==='medium'?'Med':'Baja'}</span>`:''}</div>`:''}
+        ${tall&&ev.done?`<div style="margin-top:5px;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.25);border-radius:5px;align-self:flex-start"><span style="font-size:8px;font-weight:700;color:#2ECC71">✓ Completado</span></div>`:''}
       </div>
-      <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" style="position:absolute;top:4px;right:22px;font-size:10px;color:rgba(255,255,255,0.4);cursor:pointer;opacity:0;transition:0.2s" class="schd-ev-edit-btn">✏️</div>
-      <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" style="position:absolute;top:4px;right:4px;font-size:11px;color:rgba(255,255,255,0.4);cursor:pointer;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(0,0,0,0.2)">✕</div>
+      <div style="position:absolute;top:3px;right:3px;display:flex;flex-direction:column;gap:1px">
+        <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" class="schd-ev-edit-btn" style="width:18px;height:18px;border-radius:4px;background:rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;opacity:0;transition:opacity 0.18s">✏️</div>
+        <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" class="schd-ev-del-btn" style="width:18px;height:18px;border-radius:4px;background:rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:rgba(255,255,255,0.4);opacity:0.45;transition:opacity 0.18s">✕</div>
+      </div>
       `}
     </div>`;
   });
@@ -653,6 +670,7 @@ function schdRenderNewAreaModal() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function schdOpenForm() {
+  _schdSkipAutoScroll = true;
   showSchdForm=true; schdEditId=null;
   schdTitle=""; schdStart=""; schdEnd=""; schdArea="int"; schdDesc=""; schdPriority="";
   renderSchedule();
@@ -679,6 +697,7 @@ function schdOpenEdit(id) {
 }
 
 function schdCloseForm() {
+  _schdSkipAutoScroll = true;
   showSchdForm=false; schdEditId=null; showNewAreaForm=false;
   renderSchedule();
 }
@@ -753,6 +772,7 @@ function schdSave() {
   schdTitle=""; schdStart=""; schdEnd=""; schdArea="int"; schdDesc=""; schdPriority="";
 
   if(typeof schedSave==="function") schedSave();
+  _schdSkipAutoScroll = true;
   renderSchedule();
 }
 
@@ -783,6 +803,7 @@ function schdToggleDone(id) {
   }
 
   if(typeof schedSave==="function") schedSave();
+  _schdSkipAutoScroll = true;
   if(typeof render==="function") render(); else renderSchedule();
 }
 
@@ -804,6 +825,7 @@ function schdDelete(id) {
   schdPendingDelete=null;
   flash("🗑️ Actividad eliminada","success");
   if(typeof schedSave==="function") schedSave();
+  _schdSkipAutoScroll = true;
   renderSchedule();
 }
 
@@ -841,5 +863,6 @@ function schdCreateArea() {
 
   flash(`✨ Área "${name}" creada!`,"success");
   if(typeof schedSave==="function") schedSave();
+  _schdSkipAutoScroll = true;
   renderSchedule();
 }
