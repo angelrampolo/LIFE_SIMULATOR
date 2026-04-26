@@ -142,9 +142,31 @@ function addUniTask() {
     ut.reminderId = remId;
   }
 
+  // 3. If schedule toggle is on, create linked schedule event
+  if (uniTaskAddToSchedule) {
+    const sStart = ($('uni-schd-start')?.value || uniTaskSchdStart).trim();
+    const sEnd = ($('uni-schd-end')?.value || uniTaskSchdEnd).trim();
+    if (sStart && sEnd && typeof schdTimeToMin === 'function' && schdTimeToMin(sStart) < schdTimeToMin(sEnd)) {
+      const eventId = (Date.now() + 2).toString();
+      if (!data.schedule) data.schedule = [];
+      data.schedule.push({
+        id: eventId, title: text, date: dueDate || todayStr(),
+        startTime: sStart, endTime: sEnd,
+        area: "int", priority: priority === "high" ? "high" : null, description: (sbj ? "Materia: " + sbj.name : ""),
+        done: false, todoId: todoId, uniTaskId: ut.id, createdAt: Date.now()
+      });
+      ut.scheduleEventId = eventId;
+      
+      // Update linked todo with schedule event id
+      const linkedTodo = data.todos.find(t => t.id === todoId);
+      if (linkedTodo) linkedTodo.scheduleEventId = eventId;
+    }
+  }
+
   if (textEl) textEl.value = "";
   showUniTaskForm = false;
   uniTaskSbj = null;
+  uniTaskAddToSchedule = false; uniTaskSchdStart = ""; uniTaskSchdEnd = "";
   flash("📝 Actividad agregada y vinculada a Tareas", "success");
   data.xp = (data.xp || 0) + 1; // small XP for creating
   schedSave(); checkQuests(); render();
@@ -189,6 +211,7 @@ function deleteUniTask(id) {
   // Remove linked todo and reminder
   if (ut.todoId)    data.todos     = (data.todos     || []).filter(x => x.id !== ut.todoId);
   if (ut.reminderId) data.reminders = (data.reminders || []).filter(x => x.id !== ut.reminderId);
+  if (ut.scheduleEventId) data.schedule = (data.schedule || []).filter(x => x.id !== ut.scheduleEventId);
   data.uniTasks = (data.uniTasks || []).filter(x => x.id !== id);
   flash("🗑️ Actividad eliminada", "success");
   schedSave(); render();
@@ -236,6 +259,17 @@ function renderUniversity() {
       const sbj = subjects.find(x => x.id === uniTaskSbj);
       const nEl = $("uni-task-for-name");
       if (nEl) nEl.textContent = sbj ? (sbj.icon + " " + sbj.name) : "—";
+      
+      // Update schedule toggle UI
+      const schdBtn = $("uni-schd-toggle-btn");
+      const schdFields = $("uni-schd-fields");
+      if (schdBtn) {
+        schdBtn.style.background = uniTaskAddToSchedule ? "rgba(52,152,219,0.15)" : "rgba(52,152,219,0.05)";
+        schdBtn.style.borderColor = uniTaskAddToSchedule ? "rgba(52,152,219,0.6)" : "rgba(52,152,219,0.3)";
+        schdBtn.style.color = uniTaskAddToSchedule ? "#3498DB" : "rgba(52,152,219,0.7)";
+        schdBtn.innerHTML = uniTaskAddToSchedule ? "🗓️ Programado en Agenda" : "🗓️ Agregar a Agenda (opcional)";
+      }
+      if (schdFields) schdFields.style.display = uniTaskAddToSchedule ? "block" : "none";
     }
   }
 
@@ -343,6 +377,7 @@ function buildUniTaskHTML(ut, sbj) {
         ${dateStr ? `<span style="font-size:10px;color:${isOverdue ? '#E74C3C' : '#666'}">${isOverdue ? '⚠️ ' : '📅 '}${dateStr}</span>` : ''}
         ${ut.todoId ? '<span style="font-size:9px;color:#3498DB;padding:1px 5px;border-radius:4px;background:rgba(52,152,219,0.1)">🔗 Misión</span>' : ''}
         ${ut.reminderId ? '<span style="font-size:9px;color:#F39C12;padding:1px 5px;border-radius:4px;background:rgba(243,156,18,0.1)">📌 Rec.</span>' : ''}
+        ${ut.scheduleEventId ? '<span style="font-size:9px;color:#FFD700;padding:1px 5px;border-radius:4px;background:rgba(255,215,0,0.1)">🗓️ Agenda</span>' : ''}
       </div>
     </div>
     <button onclick="deleteUniTask('${ut.id}')" style="background:transparent;border:none;color:#444;cursor:pointer;font-size:12px;padding:3px;flex-shrink:0">✕</button>

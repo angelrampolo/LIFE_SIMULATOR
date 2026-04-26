@@ -342,6 +342,25 @@
       <!-- Difficulty -->
       <div style="font-size:11px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Dificultad</div>
       <div id="todo-dif-selector" style="display:flex;gap:5px;margin-bottom:12px"></div>
+      <!-- Schedule toggle -->
+      <div id="todo-schedule-toggle" style="margin-bottom:12px">
+        <button onclick="todoAddToSchedule=!todoAddToSchedule;render()" id="todo-schd-toggle-btn" style="width:100%;padding:9px 14px;border-radius:10px;border:1px dashed rgba(255,215,0,0.25);background:rgba(255,215,0,0.03);color:rgba(255,215,0,0.5);cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif;transition:0.2s;display:flex;align-items:center;justify-content:center;gap:6px">
+          🗓️ Agregar a Agenda (opcional)
+        </button>
+        <div id="todo-schd-fields" style="display:none;margin-top:8px;padding:10px 12px;background:rgba(255,215,0,0.03);border:1px solid rgba(255,215,0,0.12);border-radius:10px">
+          <div style="font-size:10px;color:rgba(255,215,0,0.5);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⏰ Horario para Agenda</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div>
+              <div style="font-size:9px;color:#444;font-weight:700;margin-bottom:5px;text-transform:uppercase">Inicio</div>
+              <input id="todo-schd-start" class="inp" type="time" value="" oninput="todoSchdStart=this.value" style="padding:10px;font-size:14px;background:rgba(0,0,0,0.4)"/>
+            </div>
+            <div>
+              <div style="font-size:9px;color:#444;font-weight:700;margin-bottom:5px;text-transform:uppercase">Fin</div>
+              <input id="todo-schd-end" class="inp" type="time" value="" oninput="todoSchdEnd=this.value" style="padding:10px;font-size:14px;background:rgba(0,0,0,0.4)"/>
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- Add button full width -->
       <button onclick="todoText=document.getElementById('todo-input').value;addTodo()" style="width:100%;background:linear-gradient(135deg,#FF6B35,#FF8C42);border:none;color:#fff;padding:12px;border-radius:10px;cursor:pointer;font-weight:800;font-size:14px;box-shadow:0 4px 14px rgba(255,107,53,0.3);font-family:'Inter',sans-serif">+ AÑADIR MISIÓN</button>
     </div>
@@ -431,6 +450,25 @@
       <div style="margin-bottom:8px">
         <div style="font-size:11px;color:#777;margin-bottom:5px;font-weight:700">Fecha límite</div>
         <input id="uni-task-due" type="date" class="inp" style="font-size:13px;padding:10px"/>
+      </div>
+      <!-- Schedule toggle -->
+      <div id="uni-schedule-toggle" style="margin-bottom:12px">
+        <button onclick="uniTaskAddToSchedule=!uniTaskAddToSchedule;renderUniversity()" id="uni-schd-toggle-btn" style="width:100%;padding:9px 14px;border-radius:10px;border:1px dashed rgba(52,152,219,0.3);background:rgba(52,152,219,0.05);color:rgba(52,152,219,0.7);cursor:pointer;font-weight:700;font-size:12px;font-family:'Inter',sans-serif;transition:0.2s;display:flex;align-items:center;justify-content:center;gap:6px">
+          🗓️ Agregar a Agenda (opcional)
+        </button>
+        <div id="uni-schd-fields" style="display:none;margin-top:8px;padding:10px 12px;background:rgba(52,152,219,0.05);border:1px solid rgba(52,152,219,0.15);border-radius:10px">
+          <div style="font-size:10px;color:rgba(52,152,219,0.7);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⏰ Horario para Agenda</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div>
+              <div style="font-size:9px;color:#444;font-weight:700;margin-bottom:5px;text-transform:uppercase">Inicio</div>
+              <input id="uni-schd-start" class="inp" type="time" value="" oninput="uniTaskSchdStart=this.value" style="padding:10px;font-size:14px;background:rgba(0,0,0,0.4)"/>
+            </div>
+            <div>
+              <div style="font-size:9px;color:#444;font-weight:700;margin-bottom:5px;text-transform:uppercase">Fin</div>
+              <input id="uni-schd-end" class="inp" type="time" value="" oninput="uniTaskSchdEnd=this.value" style="padding:10px;font-size:14px;background:rgba(0,0,0,0.4)"/>
+            </div>
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:8px">
         <button onclick="showUniTaskForm=false;uniTaskSbj=null;render()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.09);background:transparent;color:#777;cursor:pointer;font-weight:700">Cancelar</button>

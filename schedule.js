@@ -9,6 +9,7 @@ let showSchdForm = false;
 let schdEditId = null;
 let showNewAreaForm = false;
 let schdPendingDelete = null; // id awaiting delete confirmation
+let _schdSkipAutoScroll = false; // prevent scroll jump on edit
 
 // Form fields
 let schdTitle = "";
@@ -185,13 +186,14 @@ function renderSchedule() {
   </div>
   `;
 
-  // Auto-scroll to current hour
-  if(scheduleViewMode==="timeline" && isToday){
+  // Auto-scroll to current hour (skip if editing to prevent jump)
+  if(scheduleViewMode==="timeline" && isToday && !_schdSkipAutoScroll){
     setTimeout(()=>{
       const nr=document.getElementById("schd-now-row");
       if(nr) nr.scrollIntoView({behavior:"smooth",block:"center"});
     },200);
   }
+  _schdSkipAutoScroll = false;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -248,15 +250,26 @@ function schdRenderTimeline(events) {
         const ar = allAreas.find(a=>a.id===ev.area)||AREAS[0];
         const colors = schdGetAreaColors(ev.area);
         const prioLabel = ev.priority ? (ev.priority==='high'?'🔴':ev.priority==='medium'?'🟡':'🟢') : '';
-        untimedHTML += `<div onclick="schdToggleDone('${ev.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${ev.done?'rgba(46,204,113,0.04)':'rgba(0,0,0,0.18)'};border-radius:11px;border:1px solid ${ev.done?'rgba(46,204,113,0.15)':colors.border+'22'};border-left:3px solid ${colors.border};margin-bottom:5px;cursor:pointer;transition:0.2s">
+        const isPendingDel = schdPendingDelete===ev.id;
+        untimedHTML += `<div class="schd-general-item ${ev.done?'done':''}${isPendingDel?' schd-pending-del':''}"
+            onclick="${isPendingDel?'':`schdToggleDone('${ev.id}')`}"
+            style="border-left:3px solid ${isPendingDel?'#E74C3C':colors.border}; background:${isPendingDel?'rgba(231,76,60,0.15)':''}">
+          ${isPendingDel ? `
+          <div style="display:flex;align-items:center;justify-content:center;width:100%;gap:10px">
+            <span style="font-size:12px;color:#E74C3C;font-weight:700">¿Eliminar?</span>
+            <button onclick="event.stopPropagation();schdDelete('${ev.id}')" style="padding:4px 12px;border-radius:6px;border:none;background:#E74C3C;color:#fff;cursor:pointer;font-weight:700">Sí</button>
+            <button onclick="event.stopPropagation();schdPendingDelete=null;renderSchedule()" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#aaa;cursor:pointer;font-weight:700">No</button>
+          </div>
+          ` : `
           <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${ev.done?'#2ECC71':colors.border+'88'};background:${ev.done?'rgba(46,204,113,0.18)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:11px;color:#2ECC71;flex-shrink:0">${ev.done?'✓':''}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:${ev.done?'#555':'#ddd'};text-decoration:${ev.done?'line-through':'none'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.title} ${prioLabel}</div>
+            <div style="font-size:13px;font-weight:700;color:${ev.done?'#555':'#ddd'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.title} ${prioLabel}</div>
           </div>
-          <div style="display:flex;gap:3px">
-            <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" style="font-size:11px;cursor:pointer;color:#444">✏️</div>
-            <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" style="font-size:11px;cursor:pointer;color:#444">✕</div>
+          <div style="display:flex;gap:8px">
+            <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" style="font-size:13px;cursor:pointer;color:#555">✏️</div>
+            <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" style="font-size:13px;cursor:pointer;color:#555">✕</div>
           </div>
+          `}
         </div>`;
       });
       untimedHTML += `</div>`;
@@ -317,15 +330,23 @@ function schdRenderTimeline(events) {
     const short=height<36;
     const medium=height>=36&&height<64;
 
-    evBlocks+=`<div class="schd-event ${ev.done?"done":""}"
-        onclick="schdToggleDone('${ev.id}')"
+    const isPendingDel = schdPendingDelete===ev.id;
+    evBlocks+=`<div class="schd-event ${ev.done?"done":""}${isPendingDel?' schd-pending-del':''}"
+        onclick="${isPendingDel?'':`schdToggleDone('${ev.id}')`}"
         oncontextmenu="event.preventDefault();schdOpenEdit('${ev.id}')"
         style="position:absolute;top:${top}px;height:${height}px;left:${colLeft};width:${colW};
-          background:linear-gradient(135deg,${colors.bg} 0%,${colors.bg.replace('0.78','0.65')} 100%);
-          border:1px solid ${colors.border}40;
+          background:${isPendingDel?'rgba(231,76,60,0.25)':`linear-gradient(135deg,${colors.bg} 0%,${colors.bg.replace('0.78','0.65')} 100%)`};
+          border:1px solid ${isPendingDel?'rgba(231,76,60,0.6)':colors.border+'40'};
           box-shadow:0 2px 12px ${colors.glow},inset 0 1px 0 rgba(255,255,255,0.08);
-          border-left:3px solid ${colors.border};
+          border-left:3px solid ${isPendingDel?'#E74C3C':colors.border};
           backdrop-filter:blur(8px)">
+      ${isPendingDel ? `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;gap:6px;padding:0 6px">
+        <div style="font-size:11px;color:#E74C3C;font-weight:800">¿Eliminar?</div>
+        <button onclick="event.stopPropagation();schdDelete('${ev.id}')" style="padding:3px 10px;border-radius:6px;border:none;background:#E74C3C;color:#fff;cursor:pointer;font-size:10px;font-weight:800;font-family:'Inter',sans-serif">Sí</button>
+        <button onclick="event.stopPropagation();schdPendingDelete=null;_schdSkipAutoScroll=true;renderSchedule()" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#aaa;cursor:pointer;font-size:10px;font-weight:700;font-family:'Inter',sans-serif">No</button>
+      </div>
+      ` : `
       <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;padding:${short?"2px 5px":"5px 7px"}">
         <div style="font-size:${short?"10":"11"}px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,0.6);line-height:1.2">${ev.done?"✅ ":""}${ev.title}</div>
         ${!short?`<div style="font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px;white-space:nowrap">${schdFmt(ev.startTime)} — ${schdFmt(ev.endTime)}</div>`:""}
@@ -333,6 +354,7 @@ function schdRenderTimeline(events) {
       </div>
       <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" style="position:absolute;top:4px;right:22px;font-size:10px;color:rgba(255,255,255,0.4);cursor:pointer;opacity:0;transition:0.2s" class="schd-ev-edit-btn">✏️</div>
       <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" style="position:absolute;top:4px;right:4px;font-size:11px;color:rgba(255,255,255,0.4);cursor:pointer;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(0,0,0,0.2)">✕</div>
+      `}
     </div>`;
   });
 
@@ -341,10 +363,8 @@ function schdRenderTimeline(events) {
   if(isToday&&nowMin>=minHour*60&&nowMin<=maxHour*60){
     const nowTop=(nowMin-minHour*60)/60*ROW_H;
     nowIndicator=`<div id="schd-now-row" style="position:absolute;left:${GUTTER-4}px;right:0;top:${nowTop}px;pointer-events:none;z-index:20">
-      <div style="position:relative">
-        <div style="position:absolute;left:-5px;top:-5px;width:10px;height:10px;border-radius:50%;background:#FF5722;box-shadow:0 0 10px rgba(255,87,34,0.8)"></div>
-        <div style="height:2px;background:linear-gradient(90deg,#FF5722,rgba(255,87,34,0));border-radius:2px;box-shadow:0 0 8px rgba(255,87,34,0.5)"></div>
-      </div>
+      <div class="schd-now-dot"></div>
+      <div class="schd-now-line"></div>
     </div>`;
   }
   // Build untimed events section
@@ -356,11 +376,22 @@ function schdRenderTimeline(events) {
       const ar = allAr.find(a=>a.id===ev.area)||AREAS[0];
       const clr = schdGetAreaColors(ev.area);
       const prioL = ev.priority?(ev.priority==='high'?'🔴':ev.priority==='medium'?'🟡':'🟢'):'';
-      untimedSection += `<div onclick="schdToggleDone('${ev.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:${ev.done?'rgba(46,204,113,0.04)':'rgba(0,0,0,0.18)'};border-radius:10px;border:1px solid ${ev.done?'rgba(46,204,113,0.15)':clr.border+'22'};border-left:3px solid ${clr.border};margin-bottom:4px;cursor:pointer;transition:0.2s">
+      const isPendingDel = schdPendingDelete===ev.id;
+      untimedSection += `<div class="schd-general-item ${ev.done?'done':''}${isPendingDel?' schd-pending-del':''}"
+          onclick="${isPendingDel?'':`schdToggleDone('${ev.id}')`}"
+          style="border-left:3px solid ${isPendingDel?'#E74C3C':clr.border}; background:${isPendingDel?'rgba(231,76,60,0.15)':''}">
+        ${isPendingDel ? `
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;gap:10px">
+          <span style="font-size:12px;color:#E74C3C;font-weight:700">¿Eliminar?</span>
+          <button onclick="event.stopPropagation();schdDelete('${ev.id}')" style="padding:4px 12px;border-radius:6px;border:none;background:#E74C3C;color:#fff;cursor:pointer;font-weight:700">Sí</button>
+          <button onclick="event.stopPropagation();schdPendingDelete=null;renderSchedule()" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#aaa;cursor:pointer;font-weight:700">No</button>
+        </div>
+        ` : `
         <div style="width:20px;height:20px;border-radius:6px;border:2px solid ${ev.done?'#2ECC71':clr.border+'88'};background:${ev.done?'rgba(46,204,113,0.18)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#2ECC71;flex-shrink:0">${ev.done?'✓':''}</div>
-        <div style="flex:1;font-size:13px;font-weight:600;color:${ev.done?'#555':'#ddd'};text-decoration:${ev.done?'line-through':'none'}">${ev.title} ${prioL}</div>
-        <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" style="font-size:11px;cursor:pointer;color:#444">✏️</div>
-        <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" style="font-size:11px;cursor:pointer;color:#444">✕</div>
+        <div style="flex:1;font-size:13px;font-weight:600;color:${ev.done?'#555':'#ddd'}">${ev.title} ${prioL}</div>
+        <div onclick="event.stopPropagation();schdOpenEdit('${ev.id}')" style="font-size:13px;cursor:pointer;color:#555">✏️</div>
+        <div onclick="event.stopPropagation();schdAskDelete('${ev.id}')" style="font-size:13px;cursor:pointer;color:#555">✕</div>
+        `}
       </div>`;
     });
     untimedSection += `</div>`;
@@ -630,12 +661,21 @@ function schdOpenForm() {
 
 function schdOpenEdit(id) {
   const ev=(data.schedule||[]).find(e=>e.id===id); if(!ev) return;
+  // Save scroll position to prevent jump
+  const scrollEl = document.getElementById('schd-scroll-container');
+  const savedScroll = scrollEl ? scrollEl.scrollTop : 0;
+  _schdSkipAutoScroll = true;
   showSchdForm=true; schdEditId=id;
   schdTitle=ev.title; schdStart=ev.startTime||"";
   schdEnd=ev.endTime||""; schdArea=ev.area; schdDesc=ev.description||"";
   schdPriority=ev.priority||"";
   renderSchedule();
-  setTimeout(()=>{ const inp=document.getElementById("schd-title-inp"); if(inp)inp.focus(); },100);
+  // Restore scroll position
+  setTimeout(()=>{
+    const newScrollEl = document.getElementById('schd-scroll-container');
+    if(newScrollEl) newScrollEl.scrollTop = savedScroll;
+    const inp=document.getElementById("schd-title-inp"); if(inp)inp.focus();
+  },50);
 }
 
 function schdCloseForm() {
@@ -747,10 +787,11 @@ function schdToggleDone(id) {
 }
 
 function schdAskDelete(id) {
+  _schdSkipAutoScroll = true;
   schdPendingDelete = id;
   renderSchedule();
   // Auto-cancel after 4s if user doesn't confirm
-  setTimeout(() => { if(schdPendingDelete===id){ schdPendingDelete=null; } }, 4000);
+  setTimeout(() => { if(schdPendingDelete===id){ schdPendingDelete=null; _schdSkipAutoScroll=true; renderSchedule(); } }, 4000);
 }
 
 function schdDelete(id) {

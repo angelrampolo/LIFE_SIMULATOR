@@ -430,37 +430,52 @@ button{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}
 /* ── Timeline ─────────────────────────────────────────────────────────────── */
 .schd-timeline{
   position:relative;overflow-x:hidden;
-  /* We use a fixed left column for hour labels */
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(255,255,255,0.01) 100%);
+  border-radius: 12px;
 }
 .schd-timeline-inner{
   display:flex;flex-direction:column;gap:0;
 }
 .schd-hour-row{
   display:flex;align-items:flex-start;min-height:52px;position:relative;
+  transition: background 0.3s ease;
+}
+.schd-hour-row:hover .schd-hour-line {
+  border-top-color: rgba(255,255,255,0.1);
 }
 .schd-hour-label{
   width:46px;flex-shrink:0;padding:2px 8px 0 0;
-  font-size:10px;font-weight:700;color:#333;text-align:right;
+  font-size:10px;font-weight:800;color:#444;text-align:right;
   line-height:1;letter-spacing:0.3px;
+  transition: color 0.3s ease;
 }
 .schd-hour-line{
-  flex:1;border-top:1px solid rgba(255,255,255,0.04);
+  flex:1;
+  border-top:1px solid rgba(255,255,255,0.04);
   position:relative;min-height:52px;
+  background: transparent;
+  transition: border-color 0.2s ease;
 }
-.schd-hour-row.current-hour .schd-hour-label{color:#FFD700}
-.schd-hour-row.current-hour .schd-hour-line{border-top-color:rgba(255,215,0,0.25)}
+.schd-hour-row.current-hour .schd-hour-label{
+  color:#FF3B30;
+  text-shadow: none;
+}
+.schd-hour-row.current-hour .schd-hour-line{
+  border-top-color:rgba(255,59,48,0.2);
+  background: transparent;
+}
 
-/* Current time indicator */
+/* Current time indicator - Mac Minimalist Style */
 .schd-now-line{
-  position:absolute;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,#FFD700,transparent);
+  position:absolute;left:0;right:0;height:1px;
+  background:#FF3B30;
   z-index:10;pointer-events:none;
-  box-shadow:0 0 8px rgba(255,215,0,0.5);
 }
 .schd-now-dot{
   position:absolute;left:-4px;top:-4px;
-  width:10px;height:10px;border-radius:50%;
-  background:#FFD700;box-shadow:0 0 8px rgba(255,215,0,0.8);
+  width:9px;height:9px;border-radius:50%;
+  background:#FF3B30;
+  box-shadow: 0 0 0 2px rgba(26,32,44,1); /* Dark border to pop from background */
 }
 
 /* ── Individual event blocks ──────────────────────────────────────────────── */
@@ -469,18 +484,32 @@ button{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}
   pointer-events:none;
 }
 .schd-event{
-  position:absolute;border-radius:9px;padding:5px 8px;
-  font-size:11px;font-weight:700;overflow:hidden;
+  position:absolute;border-radius:8px;padding:6px 9px;
+  font-size:11px;font-weight:600;overflow:hidden;
   cursor:pointer;pointer-events:all;
-  animation:schdEventIn 0.25s ease-out both;
-  transition:transform 0.15s,box-shadow 0.15s;
-  border:1px solid rgba(255,255,255,0.1);
-  backdrop-filter:blur(4px);
+  animation:schdEventIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition:all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border: 1px solid rgba(255,255,255,0.05)!important;
+  will-change: transform;
 }
-.schd-event:hover{transform:translateY(-1px) scale(1.01);box-shadow:0 4px 14px rgba(0,0,0,0.4);z-index:20}
-.schd-event:hover .schd-ev-edit-btn{opacity:1!important}
-.schd-event:active{transform:scale(0.97)}
-.schd-event.done{opacity:0.38;text-decoration:line-through;filter:grayscale(0.5)}
+.schd-event:hover{
+  transform:translateY(-1px) scale(1.005);
+  box-shadow:0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)!important;
+  z-index:20!important;
+  filter: brightness(1.05);
+}
+.schd-event:hover .schd-ev-edit-btn{opacity:1!important; transform: scale(1.1);}
+.schd-event:active{transform:scale(0.98); filter: brightness(0.9);}
+.schd-event.done{opacity:0.4; text-decoration:line-through; filter:grayscale(0.7) brightness(0.8);}
+.schd-pending-del { animation: schdDeleteShake 0.4s ease-in-out; }
+
+@keyframes schdDeleteShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
 .schd-event-title{
   font-size:11px;font-weight:800;color:#fff;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -522,13 +551,17 @@ button{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}
 
 /* ── Empty state ──────────────────────────────────────────────────────────── */
 .schd-empty{
-  text-align:center;padding:32px 0;
-  animation:schdSlideIn 0.3s ease-out;
+  text-align:center;padding:40px 10px;
+  animation:schdSlideIn 0.4s ease-out;
+  background: radial-gradient(circle at top, rgba(255,215,0,0.03) 0%, transparent 70%);
+  border-radius: 16px;
 }
 
 /* Responsive tweaks */
 @media(max-width:480px){
-  .schd-hour-label{width:38px;font-size:9px}
-  .schd-day-chip{padding:6px 7px;min-width:38px}
-  .schd-day-chip-num{font-size:13px}
+  .schd-hour-label{width:36px;font-size:9px; font-weight:600;}
+  .schd-day-chip{padding:6px 5px;min-width:34px; border-radius:10px;}
+  .schd-day-chip-num{font-size:12px}
+  .schd-event{border-radius: 8px;}
+  .schd-now-dot{width:8px; height:8px; left:-3px; top:-3px;}
 }

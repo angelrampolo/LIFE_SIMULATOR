@@ -33,6 +33,12 @@ let toastTimeout = null;
 let moodTimeout = null;
 let fMood = null;
 let todoViewMode = "day"; // "day" or "general"
+let todoAddToSchedule = false; // toggle for adding task to agenda
+let todoSchdStart = ""; // schedule start time
+let todoSchdEnd = "";   // schedule end time
+let uniTaskAddToSchedule = false;
+let uniTaskSchdStart = "";
+let uniTaskSchdEnd = "";
 let saveTimeout = null;
 let shopText = "";
 let shopCat = "frutas";
@@ -625,9 +631,30 @@ function addTodo() {
   const text = input ? input.value.trim() : "";
   if (!text) return;
   const d = TD.find(x => x.id === todoDif) || TD[0];
-  data.todos = [...(data.todos || []), { id: Date.now().toString(), text, diff: todoDif, area: todoArea, xp: d.xp, done: false, date: todoDate }];
+  const todoId = Date.now().toString();
+  const newTodo = { id: todoId, text, diff: todoDif, area: todoArea, xp: d.xp, done: false, date: todoDate };
+
+  // If schedule toggle is on, create linked schedule event
+  if (todoAddToSchedule) {
+    const sStart = ($('todo-schd-start')?.value || todoSchdStart).trim();
+    const sEnd = ($('todo-schd-end')?.value || todoSchdEnd).trim();
+    if (sStart && sEnd && typeof schdTimeToMin === 'function' && schdTimeToMin(sStart) < schdTimeToMin(sEnd)) {
+      const eventId = (Date.now() + 1).toString();
+      if (!data.schedule) data.schedule = [];
+      data.schedule.push({
+        id: eventId, title: text, date: todoDate,
+        startTime: sStart, endTime: sEnd,
+        area: todoArea, priority: null, description: '',
+        done: false, todoId: todoId, createdAt: Date.now()
+      });
+      newTodo.scheduleEventId = eventId;
+    }
+  }
+
+  data.todos = [...(data.todos || []), newTodo];
   if (input) input.value = "";
   todoText = "";
+  todoAddToSchedule = false; todoSchdStart = ""; todoSchdEnd = "";
   schedSave(); checkQuests(); render();
 }
 function toggleTodo(id) {
@@ -661,6 +688,15 @@ function toggleTodo(id) {
   schedSave(); checkQuests(); render();
 }
 function deleteTodo(id) {
+  const todo = (data.todos || []).find(x => x.id === id);
+  // Remove linked schedule event if exists
+  if (todo && todo.scheduleEventId) {
+    data.schedule = (data.schedule || []).filter(e => e.id !== todo.scheduleEventId);
+  }
+  // Remove linked university task if exists
+  if (todo && todo.uniTaskId) {
+    data.uniTasks = (data.uniTasks || []).filter(x => x.id !== todo.uniTaskId);
+  }
   data.todos = (data.todos || []).filter(x => x.id !== id);
   schedSave(); render();
 }
@@ -1163,6 +1199,18 @@ function renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDi
   $("todo-today-btn").style.background = isToday ? "rgba(255,107,53,0.18)" : "transparent";
   $("todo-today-btn").style.border = isToday ? "1px solid rgba(255,107,53,0.35)" : "1px solid transparent";
   $("todo-today-btn").style.color = isToday ? "#FF6B35" : "#777";
+  
+  // Update schedule toggle UI
+  const schdBtn = $("todo-schd-toggle-btn");
+  const schdFields = $("todo-schd-fields");
+  if (schdBtn) {
+    schdBtn.style.background = todoAddToSchedule ? "rgba(255,215,0,0.15)" : "rgba(255,215,0,0.03)";
+    schdBtn.style.borderColor = todoAddToSchedule ? "rgba(255,215,0,0.6)" : "rgba(255,215,0,0.25)";
+    schdBtn.style.color = todoAddToSchedule ? "#FFD700" : "rgba(255,215,0,0.5)";
+    schdBtn.innerHTML = todoAddToSchedule ? "🗓️ Programado en Agenda" : "🗓️ Agregar a Agenda (opcional)";
+  }
+  if (schdFields) schdFields.style.display = todoAddToSchedule ? "block" : "none";
+
   $("todo-progress-count").textContent = `${doneTodayCount} / ${allTodosDay.length}`;
   $("todo-progress-bar").style.width = (allTodosDay.length ? (doneTodayCount / allTodosDay.length) * 100 : 0) + "%";
 
@@ -1194,10 +1242,11 @@ function renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDi
 
   // Todo list
   let listHTML = "";
-  if (filteredTodos.length === 0) {
+  const displayTodos = filteredTodos.filter(t => !t.scheduleEventId);
+  if (displayTodos.length === 0) {
     listHTML = `<div style="text-align:center;padding:26px;color:#444"><div style="font-size:28px;margin-bottom:9px">📭</div><div style="font-size:13px">${areaFilter === "all" ? "No hay misiones para este día." : `Sin tareas de ${AREAS.find(x => x.id === areaFilter)?.n || ""} hoy.`}</div></div>`;
   }
-  filteredTodos.forEach(todo => {
+  displayTodos.forEach(todo => {
     const df = TD.find(x => x.id === todo.diff) || TD[0];
     const ar = AREAS.find(x => x.id === todo.area) || AREAS[0];
     listHTML += `<div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:${todo.done ? "rgba(46,204,113,0.04)" : "rgba(0,0,0,0.2)"};border-radius:12px;border:1px solid ${todo.done ? "rgba(46,204,113,0.18)" : "rgba(255,255,255,0.05)"};transition:0.2s">
@@ -1221,9 +1270,9 @@ function renderTodos(allTodosDay, filteredTodos, doneTodayCount, isToday, dateDi
 
   if (_daySchd.length > 0) {
     // If there were no regular todos, clear the empty-state message
-    if (filteredTodos.length === 0) listHTML = '';
+    if (displayTodos.length === 0) listHTML = '';
 
-    listHTML += `<div style="${filteredTodos.length > 0 ? 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);' : ''}">
+    listHTML += `<div style="${displayTodos.length > 0 ? 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);' : ''}">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
         <span style="font-size:13px">🗓️</span>
         <span style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">Actividades de Agenda</span>
@@ -1282,13 +1331,14 @@ function renderTodosGeneral() {
 
   // Group by date
   const groups = {};
-  filteredPending.forEach(t => {
+  const displayPending = filteredPending.filter(t => !t.scheduleEventId);
+  displayPending.forEach(t => {
     if (!groups[t.date]) groups[t.date] = [];
     groups[t.date].push(t);
   });
 
   let listHTML = "";
-  if (filteredPending.length === 0) {
+  if (displayPending.length === 0) {
     listHTML = `<div style="text-align:center;padding:30px;color:#444"><div style="font-size:32px;margin-bottom:12px">🎉</div><div style="font-size:14px;font-weight:600;color:#2ECC71">¡Sin tareas pendientes!</div><div style="font-size:12px;color:#555;margin-top:4px">Todas las misiones han sido completadas.</div></div>`;
   } else {
     const today = todayStr();
@@ -1338,7 +1388,7 @@ function renderTodosGeneral() {
     });
 
     // Append a section header only if it's needed
-    if (filteredPending.length > 0) {
+    if (displayPending.length > 0) {
       listHTML += `<div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.05)"></div>`;
     }
     listHTML += `<div style="font-size:9px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px">
